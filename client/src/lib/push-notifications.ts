@@ -8,7 +8,7 @@ export async function getVapidPublicKey(): Promise<string> {
       throw new Error('Failed to get VAPID public key');
     }
     const data = await response.json();
-    return data.vapidPublicKey;
+    return data.publicKey; // This matches what the server sends in push-notifications.ts getVapidPublicKey()
   } catch (error) {
     console.error('Error getting VAPID public key:', error);
     throw error;
@@ -116,12 +116,21 @@ export async function subscribeToPushNotifications(): Promise<PushSubscription |
 // Save the push subscription on the server
 export async function saveSubscription(subscription: PushSubscription): Promise<void> {
   try {
+    // Get basic user agent info to help identify the subscription
+    const deviceInfo = {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+    };
+
     const response = await fetch('/api/push/subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(subscription),
+      body: JSON.stringify({
+        subscription,
+        deviceInfo
+      }),
     });
 
     if (!response.ok) {
@@ -151,13 +160,13 @@ export async function unsubscribeFromPushNotifications(): Promise<boolean> {
     // Unsubscribe from push
     const success = await subscription.unsubscribe();
     if (success) {
-      // Remove the subscription from the server
+      // Remove the subscription from the server by sending just the endpoint
       await fetch('/api/push/unsubscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(subscription),
+        body: JSON.stringify({ endpoint: subscription.endpoint }),
       });
     }
 
