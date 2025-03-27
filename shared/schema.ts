@@ -91,7 +91,7 @@ export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   type: text("type", { 
-    enum: ["new_request", "new_comment", "status_update", "added_to_group", "added_to_organization", "org_role_changed"] 
+    enum: ["new_request", "new_comment", "status_update", "added_to_group", "added_to_organization", "org_role_changed", "invited_to_organization"] 
   }).notNull(),
   message: text("message").notNull(),
   read: boolean("read").default(false).notNull(),

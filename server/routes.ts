@@ -953,6 +953,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/organizations", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const organizations = await storage.getUserOrganizations(req.user.id);
+    res.json(organizations);
+  });
+  
+  // Keep the original route for backward compatibility
   app.get("/api/organizations/user", isAuthenticated, async (req, res) => {
     assertUser(req);
     const organizations = await storage.getUserOrganizations(req.user.id);
@@ -970,6 +977,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(organization);
   });
 
+  app.patch("/api/organizations/:organizationId", isOrganizationAdmin, async (req, res, next) => {
+    try {
+      const organizationId = parseInt(req.params.organizationId);
+      const updates = insertOrganizationSchema.partial().parse(req.body);
+      
+      const updatedOrganization = await storage.updateOrganization(organizationId, updates);
+      if (!updatedOrganization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      res.json(updatedOrganization);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Keep PUT for backward compatibility
   app.put("/api/organizations/:organizationId", isOrganizationAdmin, async (req, res, next) => {
     try {
       const organizationId = parseInt(req.params.organizationId);
@@ -1051,6 +1075,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId,
           type: "added_to_organization",
           message: `You were added to the organization "${organization.name}"`,
+          referenceId: organizationId
+        });
+      }
+      
+      res.status(201).json(member);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Invite a user to an organization by email
+  app.post("/api/organizations/:organizationId/invite", isOrganizationAdmin, async (req, res, next) => {
+    try {
+      assertUser(req);
+      const organizationId = parseInt(req.params.organizationId);
+      const { email, role = "member" } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Check if user with email exists
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User with this email not found" });
+      }
+      
+      // Check if already a member
+      const existingMember = await storage.getOrganizationMember(organizationId, user.id);
+      if (existingMember) {
+        return res.status(400).json({ message: "User is already a member of this organization" });
+      }
+      
+      const memberData = insertOrganizationMemberSchema.parse({
+        organizationId,
+        userId: user.id,
+        role: role
+      });
+      
+      const member = await storage.addOrganizationMember(memberData);
+      
+      // Create notification for invited user
+      const organization = await storage.getOrganization(organizationId);
+      if (organization) {
+        await storage.createNotification({
+          userId: user.id,
+          type: "invited_to_organization",
+          message: `You were invited to join the organization "${organization.name}"`,
           referenceId: organizationId
         });
       }

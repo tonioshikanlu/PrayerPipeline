@@ -27,8 +27,8 @@ function Router() {
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/explore" component={ExploreGroupsPage} />
-      <ProtectedRoute path="/organizations" component={() => <div className="container max-w-7xl py-10 pt-16 md:pt-24"><h1 className="text-3xl font-bold">Organizations</h1></div>} />
-      <ProtectedRoute path="/organizations/:organizationId" component={() => <div className="container max-w-7xl py-10 pt-16 md:pt-24"><h1 className="text-3xl font-bold">Organization Details</h1></div>} />
+      <ProtectedRoute path="/organizations" component={OrganizationsPage} />
+      <ProtectedRoute path="/organizations/:organizationId" component={OrganizationDetailsPage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
