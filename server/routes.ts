@@ -290,8 +290,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/groups/user", isAuthenticated, async (req, res) => {
     assertUser(req);
-    const groups = await storage.getUserGroups(req.user.id);
-    res.json(groups);
+    const userOrganizations = await storage.getUserOrganizations(req.user.id);
+    
+    if (userOrganizations.length === 0) {
+      return res.json([]);
+    }
+    
+    // Get only groups from the user's current organization
+    // Get the currentOrganizationId from query parameter if provided
+    const currentOrganizationId = req.query.organizationId 
+      ? parseInt(req.query.organizationId as string) 
+      : userOrganizations[0].id;
+    
+    // Get the user's groups
+    const userGroups = await storage.getUserGroups(req.user.id);
+    
+    // Filter to include only groups from the current organization
+    const filteredGroups = userGroups.filter(group => 
+      group.organizationId === currentOrganizationId
+    );
+    
+    res.json(filteredGroups);
   });
 
   app.get("/api/groups/:groupId", isAuthenticated, async (req, res) => {

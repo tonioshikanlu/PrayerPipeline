@@ -1950,22 +1950,35 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getRecentPrayerRequests(userId: number, limit = 5): Promise<PrayerRequest[]> {
-    // Get groups the user is a member of
-    const userGroups = await this.getUserGroups(userId);
-    const groupIds = userGroups.map(group => group.id);
-    
-    if (groupIds.length === 0) {
+    try {
+      // Get groups the user is a member of
+      const userGroups = await this.getUserGroups(userId);
+      const groupIds = userGroups.map(group => group.id);
+      
+      if (groupIds.length === 0) {
+        return [];
+      }
+      
+      // Get prayer requests from those groups
+      // Use raw SQL query to ensure only the columns that exist are selected
+      const result = await db.execute(
+        sql`SELECT * FROM prayer_requests WHERE group_id IN (${sql.join(groupIds)}) 
+            ORDER BY created_at DESC LIMIT ${limit}`
+      );
+      
+      // Transform the raw results to PrayerRequest objects
+      return result.rows.map(row => {
+        // Add fallback values for potentially missing columns
+        return {
+          ...row,
+          followUpDate: row.follow_up_date || null,
+          isStale: row.is_stale || false
+        } as PrayerRequest;
+      });
+    } catch (error) {
+      console.error('Error in getRecentPrayerRequests:', error);
       return [];
     }
-    
-    // Get prayer requests from those groups
-    const requests = await db.select()
-      .from(prayerRequests)
-      .where(sql`${prayerRequests.groupId} IN (${sql.join(groupIds)})`)
-      .orderBy(desc(prayerRequests.createdAt))
-      .limit(limit);
-    
-    return requests;
   }
   
   async updatePrayerRequest(id: number, requestUpdates: Partial<InsertPrayerRequest>): Promise<PrayerRequest | undefined> {
