@@ -1692,11 +1692,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       assertUser(req);
-      const meetingData = insertMeetingSchema.parse({
+      
+      // Process date fields - convert strings to Date objects
+      const requestBody = {
         ...req.body,
         groupId,
-        createdBy: req.user.id
-      });
+        createdBy: req.user.id,
+        // Make sure timestamps are converted to Date objects
+        startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+        endTime: req.body.endTime ? new Date(req.body.endTime) : null,
+        recurringUntil: req.body.recurringUntil ? new Date(req.body.recurringUntil) : null
+      };
+      
+      const meetingData = insertMeetingSchema.parse(requestBody);
       
       const meeting = await storage.createMeeting(meetingData);
       
@@ -1729,7 +1737,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const meetingId = parseInt(req.params.meetingId);
       
-      const updates = insertMeetingSchema.partial().parse(req.body);
+      // Process date fields for the update
+      const requestBody = {
+        ...req.body,
+        // Make sure timestamps are converted to Date objects
+        startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+        endTime: req.body.endTime ? new Date(req.body.endTime) : null,
+        recurringUntil: req.body.recurringUntil ? new Date(req.body.recurringUntil) : null
+      };
+      
+      const updates = insertMeetingSchema.partial().parse(requestBody);
       
       const meeting = (req as any).meeting; // Added by middleware
       if (!meeting) {

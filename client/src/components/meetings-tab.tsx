@@ -40,12 +40,12 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
   // Sort and filter meetings
   const now = new Date();
   const upcomingMeetings = meetings
-    .filter(meeting => new Date(meeting.meetingDate) >= now)
-    .sort((a, b) => new Date(a.meetingDate).getTime() - new Date(b.meetingDate).getTime());
+    .filter(meeting => new Date(meeting.startTime) >= now)
+    .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
     
   const pastMeetings = meetings
-    .filter(meeting => new Date(meeting.meetingDate) < now)
-    .sort((a, b) => new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime());
+    .filter(meeting => new Date(meeting.startTime) < now)
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
   
   // Handle meeting edit - redirect to meeting details page
   const handleEditMeeting = (meeting: Meeting) => {
@@ -188,7 +188,7 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
             <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this meeting? This action cannot be undone.
-              {meetingToDelete && new Date(meetingToDelete.meetingDate) > new Date() && (
+              {meetingToDelete && new Date(meetingToDelete.startTime) > new Date() && (
                 <span className="block mt-2 text-red-500 font-medium">
                   Note: This will cancel the meeting for all participants.
                 </span>
