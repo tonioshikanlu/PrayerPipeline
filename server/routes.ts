@@ -38,9 +38,9 @@ const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
 };
 
 // TypeScript type guard to ensure req.user is defined
-const assertUser = (req: Request): asserts req is Request & { user: Express.User } => {
+function assertUser(req: Request): asserts req is Request & { user: Express.User } {
   if (!req.user) throw new Error("User is not authenticated");
-};
+}
 
 // Middleware to check if user has a specific role
 const hasRole = (roles: string[]) => {
