@@ -33,7 +33,7 @@ export default function ResetPasswordScreen() {
   // Password reset mutation
   const resetPasswordMutation = useMutation({
     mutationFn: async (data: { token: string; password: string }) => {
-      const res = await apiRequest('POST', '/api/auth/reset-password', data);
+      const res = await apiRequest('POST', '/api/reset-password', data);
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to reset password' }));
         throw new Error(error.message || 'Failed to reset password');

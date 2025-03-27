@@ -62,7 +62,7 @@ export default function ChangePasswordScreen() {
       currentPassword: string;
       newPassword: string;
     }) => {
-      const res = await apiRequest('PUT', '/api/user/password', data);
+      const res = await apiRequest('POST', '/api/user/change-password', data);
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to change password' }));
         throw new Error(error.message || 'Failed to change password');

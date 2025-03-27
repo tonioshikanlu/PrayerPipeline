@@ -33,7 +33,7 @@ export default function ForgotPasswordScreen() {
   // Request password reset mutation
   const requestResetMutation = useMutation({
     mutationFn: async (email: string) => {
-      const res = await apiRequest('POST', '/api/auth/forgot-password', { email });
+      const res = await apiRequest('POST', '/api/forgot-password', { email });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to send reset email' }));
         throw new Error(error.message || 'Failed to send reset email');
