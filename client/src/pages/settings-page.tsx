@@ -1,14 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
 import { PrayerRemindersCard } from "@/components/prayer-reminders-card";
 import Header from "@/components/header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
+import PrayerCard from "@/components/prayer-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useLocation } from "wouter";
 import {
   Bell,
   Lock,
@@ -23,7 +29,10 @@ import {
   AlertCircle,
   Loader2,
   Clock,
-} from "lucide-react";
+  Camera,
+  ChevronRight,
+  Home,
+}  from "lucide-react";
 
 import {
   Form,
@@ -45,7 +54,15 @@ import { useMutation } from "@tanstack/react-query";
 export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [_, navigate] = useLocation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  
+  // Fetch user's recent prayer requests
+  const { data: recentRequests = [], isLoading: isLoadingRequests } = useQuery<any[]>({
+    queryKey: ["/api/requests/user/recent"],
+  });
   const {
     isSupported,
     isSubscribed,
@@ -118,6 +135,9 @@ export default function SettingsPage() {
     username: z.string().min(3, "Username must be at least 3 characters"),
     name: z.string().optional(),
     email: z.string().email("Please enter a valid email address"),
+    phone: z.string().optional(),
+    bio: z.string().optional(),
+    avatar: z.string().optional(),
   });
 
   type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -128,6 +148,9 @@ export default function SettingsPage() {
       username: user?.username || "",
       name: user?.name || "",
       email: user?.email || "",
+      phone: user?.phone || "",
+      bio: user?.bio || "",
+      avatar: user?.avatar || "",
     },
   });
 
@@ -152,8 +175,41 @@ export default function SettingsPage() {
     },
   });
 
+  // Handle avatar file change
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setAvatarPreview(result);
+      profileForm.setValue("avatar", result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Trigger file input click
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const onSubmitProfile = (data: ProfileFormValues) => {
+    if (avatarPreview) {
+      data.avatar = avatarPreview;
+    }
     updateProfileMutation.mutate(data);
+  };
+  
+  // Get initials for the avatar
+  const getInitials = () => {
+    if (!user?.name) return user?.username?.substring(0, 2).toUpperCase() || "?";
+    return user.name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
   };
 
   return (
@@ -169,6 +225,14 @@ export default function SettingsPage() {
               <Card>
                 <CardContent className="p-4">
                   <div className="flex flex-col w-full h-auto items-stretch gap-1">
+                    <Button
+                      variant={activeTab === "overview" ? "secondary" : "ghost"}
+                      onClick={() => setActiveTab("overview")}
+                      className="justify-start px-3 py-2 h-auto font-normal"
+                    >
+                      <Home className="h-4 w-4 mr-2" />
+                      Overview
+                    </Button>
                     <Button
                       variant={activeTab === "profile" ? "secondary" : "ghost"}
                       onClick={() => setActiveTab("profile")}
@@ -223,6 +287,105 @@ export default function SettingsPage() {
             </div>
             
             <div className="w-full md:w-3/4">
+              {activeTab === "overview" && (
+                <>
+                  {/* Profile Information Card */}
+                  <Card className="mb-6">
+                    <CardHeader className="pb-2 flex flex-col items-center">
+                      <div className="relative cursor-pointer group mb-2" onClick={handleAvatarClick}>
+                        <Avatar className="h-24 w-24 border-2 border-border">
+                          {avatarPreview ? (
+                            <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                          ) : user?.avatar ? (
+                            <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                              {getInitials()}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Camera className="h-8 w-8 text-white" />
+                        </div>
+                      </div>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                      />
+                      <CardTitle className="text-xl mt-2">{user?.name || user?.username}</CardTitle>
+                      <CardDescription>{user?.email}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-center">
+                      <div className="flex flex-wrap justify-center gap-4 mt-4">
+                        <Button variant="outline" size="sm" onClick={() => setActiveTab("profile")}>
+                          <User className="h-4 w-4 mr-2" />
+                          Edit Profile
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => navigate("/organizations")}>
+                          <User className="h-4 w-4 mr-2" />
+                          Organizations
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* My Prayer Journey Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>My Prayer Journey</CardTitle>
+                      <CardDescription>
+                        Track your prayer requests and their progress
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {isLoadingRequests ? (
+                          <>
+                            <Skeleton className="h-40 w-full" />
+                            <Skeleton className="h-40 w-full" />
+                            <Skeleton className="h-40 w-full" />
+                          </>
+                        ) : recentRequests.length > 0 ? (
+                          <>
+                            {recentRequests.slice(0, 3).map((request) => (
+                              <PrayerCard
+                                key={request.id}
+                                request={request}
+                                onClick={() => navigate(`/requests/${request.id}`)}
+                              />
+                            ))}
+                          </>
+                        ) : (
+                          <div className="text-center py-12 bg-muted rounded-lg">
+                            <p className="text-muted-foreground mb-4">
+                              You haven't created any prayer requests yet.
+                            </p>
+                            <Button onClick={() => navigate("/")}>
+                              Create a Prayer Request
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                    {recentRequests.length > 3 && (
+                      <CardFooter className="flex justify-center pt-0">
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={() => navigate("/prayer-requests")}
+                        >
+                          View All Prayer Requests
+                          <ChevronRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      </CardFooter>
+                    )}
+                  </Card>
+                </>
+              )}
+              
               {activeTab === "profile" && (
                 <Card>
                   <CardHeader>
@@ -284,6 +447,79 @@ export default function SettingsPage() {
                             </FormItem>
                           )}
                         />
+                        
+                        <FormField
+                          control={profileForm.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone (optional)</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="tel"
+                                  inputMode="tel"
+                                  placeholder="(123) 456-7890" 
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={profileForm.control}
+                          name="bio"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Bio</FormLabel>
+                              <FormControl>
+                                <Textarea 
+                                  placeholder="Tell us a little about yourself" 
+                                  rows={4}
+                                  {...field} 
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                This will be visible to other members of your prayer groups
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="flex flex-col items-center mb-6">
+                          <FormLabel className="mb-2">Profile Picture</FormLabel>
+                          <div 
+                            className="relative cursor-pointer group"
+                            onClick={handleAvatarClick}
+                          >
+                            <Avatar className="h-32 w-32 border-2 border-border">
+                              {avatarPreview ? (
+                                <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                              ) : user?.avatar ? (
+                                <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                                  {getInitials()}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Camera className="h-8 w-8 text-white" />
+                            </div>
+                          </div>
+                          <FormDescription className="mt-2 text-center">
+                            Click to upload or change your profile picture
+                          </FormDescription>
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                          />
+                        </div>
                         
                         <div className="flex justify-end">
                           <Button

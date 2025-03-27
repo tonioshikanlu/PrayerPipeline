@@ -80,12 +80,7 @@ export default function Header() {
             >
               Explore
             </a>
-            <a 
-              className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
-              onClick={() => navigate("/profile")}
-            >
-              Profile
-            </a>
+
           </nav>
         </div>
         <div className="flex items-center space-x-4">
@@ -107,12 +102,7 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  className="cursor-pointer"
-                  onClick={() => navigate("/profile")}
-                >
-                  Your Profile
-                </DropdownMenuItem>
+
                 <DropdownMenuItem 
                   className="cursor-pointer"
                   onClick={() => navigate("/organizations")}
