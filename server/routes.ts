@@ -690,9 +690,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/requests/user/recent", isAuthenticated, async (req, res) => {
+    assertUser(req);
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
+    const organizationId = req.query.organizationId ? parseInt(req.query.organizationId as string) : null;
     
-    const requests = await storage.getRecentPrayerRequests(req.user.id, limit);
+    if (!organizationId) {
+      return res.status(400).json({ error: "Organization ID is required" });
+    }
+    
+    // Get user's groups in this organization
+    const userGroups = await storage.getUserGroups(req.user.id);
+    const organizationGroups = userGroups.filter(group => group.organizationId === organizationId);
+    
+    if (organizationGroups.length === 0) {
+      return res.json([]);
+    }
+    
+    // Get prayer requests only from the user's groups in this organization
+    const organizationGroupIds = organizationGroups.map(group => group.id);
+    const requests = await storage.getRecentPrayerRequestsByGroups(organizationGroupIds, limit);
     
     // Enrich each request with author details and comment count
     const enrichedRequests = await Promise.all(

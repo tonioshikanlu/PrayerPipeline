@@ -86,6 +86,7 @@ export interface IStorage {
   getGroupPrayerRequests(groupId: number): Promise<PrayerRequest[]>;
   getUserPrayerRequests(userId: number): Promise<PrayerRequest[]>;
   getRecentPrayerRequests(userId: number, limit?: number): Promise<PrayerRequest[]>;
+  getRecentPrayerRequestsByGroups(groupIds: number[], limit?: number): Promise<PrayerRequest[]>;
   updatePrayerRequest(id: number, request: Partial<InsertPrayerRequest>): Promise<PrayerRequest | undefined>;
   deletePrayerRequest(id: number): Promise<boolean>;
   checkAndUpdateStalePrayerRequests(): Promise<number>;
@@ -721,6 +722,16 @@ export class MemStorage implements IStorage {
     const groupIds = userGroups.map(group => group.id);
     
     // Get prayer requests from those groups
+    const requests = Array.from(this.prayerRequestsMap.values())
+      .filter(request => groupIds.includes(request.groupId))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+    
+    return requests;
+  }
+  
+  async getRecentPrayerRequestsByGroups(groupIds: number[], limit = 5): Promise<PrayerRequest[]> {
+    // Get prayer requests from the specified groups
     const requests = Array.from(this.prayerRequestsMap.values())
       .filter(request => groupIds.includes(request.groupId))
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
@@ -2295,6 +2306,39 @@ export class DatabaseStorage implements IStorage {
       }));
     } catch (error) {
       console.error('Error in getRecentPrayerRequests:', error);
+      return [];
+    }
+  }
+  
+  async getRecentPrayerRequestsByGroups(groupIds: number[], limit = 5): Promise<PrayerRequest[]> {
+    try {
+      if (groupIds.length === 0) {
+        return [];
+      }
+      
+      // Use a more primitive query approach to avoid column-related issues
+      // Strictly limit to the 5 most recent requests
+      const { rows } = await pool.query(
+        `SELECT 
+          id, group_id as "groupId", user_id as "userId", title, description, 
+          urgency, is_anonymous as "isAnonymous", status, 
+          created_at as "createdAt", updated_at as "updatedAt"
+        FROM prayer_requests
+        WHERE group_id = ANY($1)
+        ORDER BY created_at DESC
+        LIMIT $2`,
+        [groupIds, Math.min(limit, 5)] // Ensure we never return more than 5 requests
+      );
+      
+      // Add default/missing properties
+      return rows.map((request: any) => ({
+        ...request,
+        isStale: false, // Default value since column doesn't exist in DB
+        followUpDate: null, // Default value since column doesn't exist in DB
+        content: request.description // Ensure content is set for backward compatibility
+      }));
+    } catch (error) {
+      console.error('Error in getRecentPrayerRequestsByGroups:', error);
       return [];
     }
   }

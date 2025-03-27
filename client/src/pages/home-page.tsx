@@ -28,7 +28,16 @@ export default function HomePage() {
     data: recentRequests = [],
     isLoading: isLoadingRequests,
   } = useQuery<PrayerRequest[]>({
-    queryKey: ["/api/requests/user/recent"],
+    queryKey: ["/api/requests/user/recent", currentOrganization?.id],
+    queryFn: () => {
+      if (!currentOrganization) return Promise.resolve([]);
+      return fetch(`/api/requests/user/recent?organizationId=${currentOrganization.id}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch recent prayer requests');
+          return res.json();
+        });
+    },
+    enabled: !!currentOrganization,
   });
 
   // Fetch organization groups
