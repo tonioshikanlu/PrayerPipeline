@@ -30,10 +30,32 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     // Build URL with query parameters
-    let url = queryKey[0] as string;
-    if (queryKey.length > 1 && queryKey[1] !== undefined && queryKey[1] !== null) {
-      // Add organizationId parameter from the second element in queryKey
-      url = `${url}${url.includes('?') ? '&' : '?'}organizationId=${queryKey[1]}`;
+    let url: string;
+    
+    // Handle array query keys differently based on structure
+    if (Array.isArray(queryKey) && queryKey.length > 1) {
+      // Special case for paths with IDs embedded in them, like '/api/groups/:groupId/meetings'
+      if (queryKey.length >= 3 && queryKey[0] === '/api/groups' && queryKey[2] === 'meetings') {
+        url = `/api/groups/${queryKey[1]}/meetings`;
+      }
+      // Special case for meetings notes
+      else if (queryKey.length >= 3 && queryKey[0] === '/api/meetings' && queryKey[2] === 'notes') {
+        url = `/api/meetings/${queryKey[1]}/notes`;
+      }
+      // Special case for specific meeting by ID
+      else if (queryKey.length === 2 && queryKey[0] === '/api/meetings') {
+        url = `/api/meetings/${queryKey[1]}`;
+      }
+      // Default case: treat second param as organizationId
+      else if (queryKey[1] !== undefined && queryKey[1] !== null) {
+        url = `${queryKey[0]}${queryKey[0].includes('?') ? '&' : '?'}organizationId=${queryKey[1]}`;
+      } 
+      else {
+        url = queryKey[0] as string;
+      }
+    } else {
+      // Simple case: just use the first element as the URL
+      url = queryKey[0] as string;
     }
 
     const res = await fetch(url, {
