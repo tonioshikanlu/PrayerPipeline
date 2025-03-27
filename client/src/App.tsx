@@ -7,6 +7,8 @@ import HomePage from "@/pages/home-page";
 import AuthPage from "@/pages/auth-page";
 import GroupDetails from "@/pages/group-details";
 import RequestDetails from "@/pages/request-details";
+import ProfilePage from "@/pages/profile-page";
+import SettingsPage from "@/pages/settings-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { AuthProvider } from "./hooks/use-auth";
 
@@ -16,6 +18,8 @@ function Router() {
       <ProtectedRoute path="/" component={HomePage} />
       <ProtectedRoute path="/groups/:groupId" component={GroupDetails} />
       <ProtectedRoute path="/requests/:requestId" component={RequestDetails} />
+      <ProtectedRoute path="/profile" component={ProfilePage} />
+      <ProtectedRoute path="/settings" component={SettingsPage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/:rest*" component={NotFound} />
     </Switch>

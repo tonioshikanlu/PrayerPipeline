@@ -10,6 +10,23 @@ import {
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
+import { scrypt, randomBytes, timingSafeEqual } from "crypto";
+import { promisify } from "util";
+
+const scryptAsync = promisify(scrypt);
+
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
+
+async function comparePasswords(supplied: string, stored: string) {
+  const [hashed, salt] = stored.split(".");
+  const hashedBuf = Buffer.from(hashed, "hex");
+  const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  return timingSafeEqual(hashedBuf, suppliedBuf);
+}
 
 // Middleware to check if user is authenticated
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
@@ -733,6 +750,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const count = await storage.getPrayingForCount(requestId);
     
     res.json({ success, count });
+  });
+
+  // User profile routes
+  app.put("/api/user/profile", isAuthenticated, async (req, res) => {
+    const { name, email, bio } = req.body;
+    
+    // Validate inputs
+    if (typeof name !== 'string' || typeof email !== 'string') {
+      return res.status(400).json({ message: "Invalid input data" });
+    }
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+    
+    try {
+      // For now, we only update user's name and email since the User schema doesn't have a bio field
+      const updatedUser = await storage.updateUser(req.user.id, { 
+        name: name.trim(),
+        email: email.trim()
+      });
+      
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to update user profile" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "An error occurred while updating your profile" });
+    }
+  });
+  
+  app.post("/api/user/change-password", isAuthenticated, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    
+    // Validate inputs
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+      return res.status(400).json({ message: "Invalid input data" });
+    }
+    
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: "New password must be at least 8 characters long" });
+    }
+    
+    try {
+      // First verify the current password
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const isPasswordCorrect = await comparePasswords(currentPassword, user.password);
+      if (!isPasswordCorrect) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await hashPassword(newPassword);
+      
+      // Update the password
+      const updatedUser = await storage.updateUser(req.user.id, { 
+        password: hashedPassword
+      });
+      
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to update password" });
+      }
+      
+      res.json({ success: true, message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ message: "An error occurred while changing your password" });
+    }
   });
 
   // Admin routes

@@ -17,6 +17,7 @@ export interface IStorage {
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, userData: Partial<User>): Promise<User | undefined>;
   updateUserRole(id: number, role: string): Promise<User | undefined>;
   
   // Groups
@@ -134,6 +135,23 @@ export class MemStorage implements IStorage {
     };
     this.usersMap.set(id, user);
     return user;
+  }
+  
+  async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
+    const user = await this.getUser(id);
+    if (!user) return undefined;
+    
+    // If updating the role, validate it's a permitted value
+    let validatedUserData = { ...userData };
+    if (userData.role) {
+      validatedUserData.role = ["regular", "leader", "admin"].includes(userData.role) 
+        ? userData.role as "regular" | "leader" | "admin"
+        : user.role;
+    }
+    
+    const updatedUser = { ...user, ...validatedUserData };
+    this.usersMap.set(id, updatedUser);
+    return updatedUser;
   }
   
   async updateUserRole(id: number, role: string): Promise<User | undefined> {

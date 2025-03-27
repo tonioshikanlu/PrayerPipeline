@@ -1,0 +1,605 @@
+import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import Header from "@/components/header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import {
+  Bell,
+  Lock,
+  User,
+  Shield,
+  ToggleLeft,
+  Moon,
+  Sun,
+  Palette,
+} from "lucide-react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
+
+export default function SettingsPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("profile");
+
+  // Password change form schema
+  const passwordSchema = z
+    .object({
+      currentPassword: z.string().min(1, "Current password is required"),
+      newPassword: z.string().min(8, "Password must be at least 8 characters"),
+      confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
+    })
+    .refine((data) => data.newPassword === data.confirmPassword, {
+      message: "Passwords don't match",
+      path: ["confirmPassword"],
+    });
+
+  type PasswordFormValues = z.infer<typeof passwordSchema>;
+
+  const passwordForm = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+  
+  // Change password mutation
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: PasswordFormValues): Promise<void> => {
+      await apiRequest("POST", "/api/user/change-password", {
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Password updated",
+        description: "Your password has been changed successfully.",
+      });
+      passwordForm.reset();
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmitPassword = (data: PasswordFormValues) => {
+    changePasswordMutation.mutate(data);
+  };
+
+  // Profile form schema
+  const profileSchema = z.object({
+    username: z.string().min(3, "Username must be at least 3 characters"),
+    name: z.string().optional(),
+    email: z.string().email("Please enter a valid email address"),
+  });
+
+  type ProfileFormValues = z.infer<typeof profileSchema>;
+
+  const profileForm = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      username: user?.username || "",
+      name: user?.name || "",
+      email: user?.email || "",
+    },
+  });
+
+  // Update profile mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: ProfileFormValues): Promise<void> => {
+      await apiRequest("PUT", "/api/user/profile", data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmitProfile = (data: ProfileFormValues) => {
+    updateProfileMutation.mutate(data);
+  };
+
+  return (
+    <div>
+      <Header />
+      
+      <main className="pt-20 pb-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h1 className="text-3xl font-bold mb-6">Settings</h1>
+          
+          <div className="flex flex-col md:flex-row gap-8">
+            <div className="w-full md:w-1/4">
+              <Card>
+                <CardContent className="p-4">
+                  <TabsList className="flex flex-col w-full h-auto bg-transparent items-stretch">
+                    <TabsTrigger
+                      value="profile"
+                      onClick={() => setActiveTab("profile")}
+                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "profile" ? "bg-muted" : ""}`}
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Profile
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="account"
+                      onClick={() => setActiveTab("account")}
+                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "account" ? "bg-muted" : ""}`}
+                    >
+                      <Lock className="h-4 w-4 mr-2" />
+                      Account
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="appearance"
+                      onClick={() => setActiveTab("appearance")}
+                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "appearance" ? "bg-muted" : ""}`}
+                    >
+                      <Palette className="h-4 w-4 mr-2" />
+                      Appearance
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="notifications"
+                      onClick={() => setActiveTab("notifications")}
+                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "notifications" ? "bg-muted" : ""}`}
+                    >
+                      <Bell className="h-4 w-4 mr-2" />
+                      Notifications
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="privacy"
+                      onClick={() => setActiveTab("privacy")}
+                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "privacy" ? "bg-muted" : ""}`}
+                    >
+                      <Shield className="h-4 w-4 mr-2" />
+                      Privacy
+                    </TabsTrigger>
+                  </TabsList>
+                </CardContent>
+              </Card>
+            </div>
+            
+            <div className="w-full md:w-3/4">
+              {activeTab === "profile" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Profile Settings</CardTitle>
+                    <CardDescription>
+                      Manage your personal information
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Form {...profileForm}>
+                      <form onSubmit={profileForm.handleSubmit(onSubmitProfile)} className="space-y-6">
+                        <FormField
+                          control={profileForm.control}
+                          name="username"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Username</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                This is your public display name
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={profileForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Full Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                This is your real name, for personalization
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={profileForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input {...field} />
+                              </FormControl>
+                              <FormDescription>
+                                Used for notifications and account recovery
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="flex justify-end">
+                          <Button
+                            type="submit"
+                            disabled={updateProfileMutation.isPending}
+                          >
+                            {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {activeTab === "account" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Account Security</CardTitle>
+                    <CardDescription>
+                      Manage your account security settings
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <h3 className="font-medium text-lg mb-4">Change Password</h3>
+                      <Form {...passwordForm}>
+                        <form onSubmit={passwordForm.handleSubmit(onSubmitPassword)} className="space-y-4">
+                          <FormField
+                            control={passwordForm.control}
+                            name="currentPassword"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Current Password</FormLabel>
+                                <FormControl>
+                                  <Input type="password" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={passwordForm.control}
+                            name="newPassword"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>New Password</FormLabel>
+                                <FormControl>
+                                  <Input type="password" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={passwordForm.control}
+                            name="confirmPassword"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Confirm New Password</FormLabel>
+                                <FormControl>
+                                  <Input type="password" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <div className="flex justify-end">
+                            <Button
+                              type="submit"
+                              disabled={changePasswordMutation.isPending}
+                            >
+                              {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
+                            </Button>
+                          </div>
+                        </form>
+                      </Form>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div>
+                      <h3 className="font-medium text-lg mb-4">Account Status</h3>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">Member Since</p>
+                            <p className="text-sm text-muted-foreground">
+                              Not available
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium">Account Role</p>
+                            <p className="text-sm text-muted-foreground">
+                              {user?.role || "Member"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div>
+                      <h3 className="font-medium text-lg text-red-500 mb-4">Danger Zone</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Once you delete your account, there is no going back. Please be certain.
+                      </p>
+                      <Button variant="destructive">
+                        Delete Account
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {activeTab === "appearance" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Appearance</CardTitle>
+                    <CardDescription>
+                      Customize how Prayer Pipeline looks for you
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Sun className="h-5 w-5" />
+                          <div>
+                            <p className="font-medium">Light Mode</p>
+                            <p className="text-sm text-muted-foreground">
+                              Use light theme
+                            </p>
+                          </div>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Moon className="h-5 w-5" />
+                          <div>
+                            <p className="font-medium">Dark Mode</p>
+                            <p className="text-sm text-muted-foreground">
+                              Use dark theme
+                            </p>
+                          </div>
+                        </div>
+                        <Switch />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ToggleLeft className="h-5 w-5" />
+                          <div>
+                            <p className="font-medium">System Preference</p>
+                            <p className="text-sm text-muted-foreground">
+                              Match your system theme
+                            </p>
+                          </div>
+                        </div>
+                        <Switch />
+                      </div>
+                      
+                      <div className="mt-6">
+                        <Button className="mr-2" variant="default">Save Preferences</Button>
+                        <Button variant="outline">Reset to Default</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {activeTab === "notifications" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Notification Preferences</CardTitle>
+                    <CardDescription>
+                      Control when and how you get notified
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="font-medium text-lg mb-3">Email Notifications</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Prayer Requests</p>
+                              <p className="text-sm text-muted-foreground">
+                                Get notified about new prayer requests in your groups
+                              </p>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Group Invitations</p>
+                              <p className="text-sm text-muted-foreground">
+                                Get notified when you're invited to a new group
+                              </p>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Comments</p>
+                              <p className="text-sm text-muted-foreground">
+                                Get notified when someone comments on your prayer request
+                              </p>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div>
+                        <h3 className="font-medium text-lg mb-3">In-App Notifications</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">All Notifications</p>
+                              <p className="text-sm text-muted-foreground">
+                                Enable or disable all in-app notifications
+                              </p>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Status Updates</p>
+                              <p className="text-sm text-muted-foreground">
+                                Get notified when prayer request statuses are updated
+                              </p>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Group Updates</p>
+                              <p className="text-sm text-muted-foreground">
+                                Get notified about changes to groups you're in
+                              </p>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-6">
+                        <Button>Save Notification Settings</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {activeTab === "privacy" && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Privacy Settings</CardTitle>
+                    <CardDescription>
+                      Control your privacy preferences
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="font-medium text-lg mb-3">Profile Visibility</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Show Email Address</p>
+                              <p className="text-sm text-muted-foreground">
+                                Allow others to see your email address
+                              </p>
+                            </div>
+                            <Switch />
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Show Profile to Non-Group Members</p>
+                              <p className="text-sm text-muted-foreground">
+                                Allow non-group members to view your profile
+                              </p>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <Separator />
+                      
+                      <div>
+                        <h3 className="font-medium text-lg mb-3">Prayer Request Privacy</h3>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Default to Anonymous</p>
+                              <p className="text-sm text-muted-foreground">
+                                Make all your prayer requests anonymous by default
+                              </p>
+                            </div>
+                            <Switch />
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">Allow Sharing</p>
+                              <p className="text-sm text-muted-foreground">
+                                Allow your prayer requests to be shared outside your groups
+                              </p>
+                            </div>
+                            <Switch defaultChecked />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-6">
+                        <Button>Save Privacy Settings</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
