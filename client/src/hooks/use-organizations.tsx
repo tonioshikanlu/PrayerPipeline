@@ -59,8 +59,15 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     error: errorMembers,
     isLoading: isLoadingMembers,
   } = useQuery<OrganizationMember[], Error>({
-    queryKey: ["/api/organizations/members", currentOrganizationId],
-    queryFn: getQueryFn({ on401: "throw" }),
+    queryKey: ["/api/organizations/members"],
+    queryFn: () => {
+      if (!currentOrganizationId) return Promise.resolve([]);
+      return fetch(`/api/organizations/members?organizationId=${currentOrganizationId}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch members');
+          return res.json();
+        });
+    },
     enabled: !!currentOrganizationId,
   });
 
@@ -137,7 +144,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", `/api/organizations/${organizationId}/invite`, { email, role });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/organizations/members", currentOrganizationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/organizations/members"] });
       toast({
         title: "Invitation sent",
         description: "The user has been invited to the organization.",
@@ -158,7 +165,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       await apiRequest("DELETE", `/api/organizations/${organizationId}/members/${userId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/organizations/members", currentOrganizationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/organizations/members"] });
       toast({
         title: "Member removed",
         description: "The member has been removed from the organization.",
