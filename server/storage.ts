@@ -99,9 +99,9 @@ export interface IStorage {
   
   // Notifications
   createNotification(notification: InsertNotification): Promise<Notification>;
-  getUserNotifications(userId: number): Promise<Notification[]>;
+  getUserNotifications(userId: number, organizationId?: number): Promise<Notification[]>;
   markNotificationRead(id: number): Promise<Notification | undefined>;
-  markAllNotificationsRead(userId: number): Promise<boolean>;
+  markAllNotificationsRead(userId: number, organizationId?: number): Promise<boolean>;
   deleteNotification(id: number): Promise<boolean>;
   
   // Praying For
@@ -890,10 +890,79 @@ export class MemStorage implements IStorage {
     return notification;
   }
   
-  async getUserNotifications(userId: number): Promise<Notification[]> {
-    return Array.from(this.notificationsMap.values())
+  async getUserNotifications(userId: number, organizationId?: number): Promise<Notification[]> {
+    const allNotifications = Array.from(this.notificationsMap.values())
       .filter(notification => notification.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    // If no organizationId is provided, return all notifications
+    if (!organizationId) {
+      return allNotifications;
+    }
+
+    // Otherwise, filter notifications by organization
+    // We need to check if notification.referenceId points to a group, prayer request,
+    // or comment that belongs to the current organization
+    const filteredNotifications = [];
+    
+    for (const notification of allNotifications) {
+      // Skip notifications with no referenceId
+      if (!notification.referenceId) {
+        filteredNotifications.push(notification);
+        continue;
+      }
+      
+      const refId = notification.referenceId;
+      
+      // Check if it's a notification about a group
+      if (notification.type.includes('group')) {
+        const group = await this.getGroup(refId);
+        if (group && group.organizationId === organizationId) {
+          filteredNotifications.push(notification);
+        }
+        continue;
+      }
+      
+      // Check if it's a notification about a prayer request
+      if (notification.type.includes('prayer') || notification.type.includes('request') || notification.type === 'status_update') {
+        const request = await this.getPrayerRequest(refId);
+        if (request) {
+          const group = await this.getGroup(request.groupId);
+          if (group && group.organizationId === organizationId) {
+            filteredNotifications.push(notification);
+          }
+        }
+        continue;
+      }
+      
+      // Check if it's a notification about a comment
+      if (notification.type === 'new_comment') {
+        const comment = await this.getComment(refId);
+        if (comment) {
+          const request = await this.getPrayerRequest(comment.prayerRequestId);
+          if (request) {
+            const group = await this.getGroup(request.groupId);
+            if (group && group.organizationId === organizationId) {
+              filteredNotifications.push(notification);
+            }
+          }
+        }
+        continue;
+      }
+      
+      // For organization-related notifications
+      if (notification.type.includes('organization')) {
+        if (refId === organizationId) {
+          filteredNotifications.push(notification);
+        }
+        continue;
+      }
+      
+      // For notifications we couldn't categorize, include them by default
+      filteredNotifications.push(notification);
+    }
+    
+    return filteredNotifications;
   }
   
   async markNotificationRead(id: number): Promise<Notification | undefined> {
@@ -905,8 +974,8 @@ export class MemStorage implements IStorage {
     return updatedNotification;
   }
   
-  async markAllNotificationsRead(userId: number): Promise<boolean> {
-    const userNotifications = await this.getUserNotifications(userId);
+  async markAllNotificationsRead(userId: number, organizationId?: number): Promise<boolean> {
+    const userNotifications = await this.getUserNotifications(userId, organizationId);
     
     for (const notification of userNotifications) {
       const updatedNotification = { ...notification, read: true };
@@ -2486,11 +2555,97 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
-  async getUserNotifications(userId: number): Promise<Notification[]> {
-    return await db.select()
+  async getUserNotifications(userId: number, organizationId?: number): Promise<Notification[]> {
+    // Get all notifications for this user
+    const userNotifications = await db.select()
       .from(notifications)
       .where(eq(notifications.userId, userId))
       .orderBy(desc(notifications.createdAt));
+    
+    // If no organizationId is provided, return all notifications
+    if (!organizationId) {
+      return userNotifications;
+    }
+    
+    // Otherwise, filter notifications by organization
+    const filteredNotifications = [];
+    
+    for (const notification of userNotifications) {
+      // Skip notifications with no referenceId
+      if (notification.referenceId === null) {
+        filteredNotifications.push(notification);
+        continue;
+      }
+      
+      const refId = notification.referenceId;
+      
+      // Check if it's a notification about a group
+      if (notification.type.includes('group')) {
+        const [group] = await db.select()
+          .from(groups)
+          .where(eq(groups.id, refId));
+          
+        if (group && group.organizationId === organizationId) {
+          filteredNotifications.push(notification);
+        }
+        continue;
+      }
+      
+      // Check if it's a notification about a prayer request
+      if (notification.type.includes('prayer') || notification.type.includes('request') || notification.type === 'status_update') {
+        const [request] = await db.select()
+          .from(prayerRequests)
+          .where(eq(prayerRequests.id, refId));
+          
+        if (request) {
+          const [group] = await db.select()
+            .from(groups)
+            .where(eq(groups.id, request.groupId));
+            
+          if (group && group.organizationId === organizationId) {
+            filteredNotifications.push(notification);
+          }
+        }
+        continue;
+      }
+      
+      // Check if it's a notification about a comment
+      if (notification.type === 'new_comment') {
+        const [comment] = await db.select()
+          .from(comments)
+          .where(eq(comments.id, refId));
+          
+        if (comment) {
+          const [request] = await db.select()
+            .from(prayerRequests)
+            .where(eq(prayerRequests.id, comment.prayerRequestId));
+            
+          if (request) {
+            const [group] = await db.select()
+              .from(groups)
+              .where(eq(groups.id, request.groupId));
+              
+            if (group && group.organizationId === organizationId) {
+              filteredNotifications.push(notification);
+            }
+          }
+        }
+        continue;
+      }
+      
+      // For organization-related notifications
+      if (notification.type.includes('organization')) {
+        if (refId === organizationId) {
+          filteredNotifications.push(notification);
+        }
+        continue;
+      }
+      
+      // For notifications we couldn't categorize, include them by default
+      filteredNotifications.push(notification);
+    }
+    
+    return filteredNotifications;
   }
   
   async markNotificationRead(id: number): Promise<Notification | undefined> {
@@ -2502,15 +2657,40 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
-  async markAllNotificationsRead(userId: number): Promise<boolean> {
+  async markAllNotificationsRead(userId: number, organizationId?: number): Promise<boolean> {
     try {
+      // If no organizationId provided, mark all as read
+      if (!organizationId) {
+        await db.update(notifications)
+          .set({ read: true })
+          .where(eq(notifications.userId, userId));
+        
+        return true;
+      }
+      
+      // Otherwise, first get the notifications filtered by organization
+      const filteredNotifications = await this.getUserNotifications(userId, organizationId);
+      
+      // If there are no notifications to mark, return success
+      if (filteredNotifications.length === 0) {
+        return true;
+      }
+      
+      // Mark each notification as read
+      const notificationIds = filteredNotifications.map(n => n.id);
+      
       await db.update(notifications)
         .set({ read: true })
-        .where(eq(notifications.userId, userId));
+        .where(
+          and(
+            eq(notifications.userId, userId), 
+            inArray(notifications.id, notificationIds)
+          )
+        );
       
       return true;
     } catch (error) {
-      console.error("Error marking all notifications as read:", error);
+      console.error("Error marking notifications as read:", error);
       return false;
     }
   }

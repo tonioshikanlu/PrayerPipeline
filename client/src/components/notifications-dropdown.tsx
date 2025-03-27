@@ -3,16 +3,19 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Notification } from "@shared/schema";
 
 export default function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [_, navigate] = useLocation();
+  const { currentOrganization } = useOrganizations();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -29,17 +32,30 @@ export default function NotificationsDropdown() {
   }, []);
 
   // Fetch notifications
-  const { data: notifications, isLoading } = useQuery({
-    queryKey: ["/api/notifications"],
+  const { data: notifications, isLoading } = useQuery<Notification[]>({
+    queryKey: ["/api/notifications", currentOrganization?.id],
+    queryFn: () => {
+      const url = currentOrganization?.id
+        ? `/api/notifications?organizationId=${currentOrganization.id}`
+        : "/api/notifications";
+      return fetch(url).then(res => {
+        if (!res.ok) throw new Error("Failed to fetch notifications");
+        return res.json();
+      });
+    },
+    enabled: !!currentOrganization?.id, // Only fetch when we have an organization
   });
 
   // Mark all notifications as read
   const markAllReadMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("PATCH", "/api/notifications/mark-all-read", {});
+      const url = currentOrganization?.id
+        ? `/api/notifications/mark-all-read?organizationId=${currentOrganization.id}`
+        : "/api/notifications/mark-all-read";
+      await apiRequest("PATCH", url, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", currentOrganization?.id] });
       toast({
         title: "Notifications marked as read",
         description: "All notifications have been marked as read.",
@@ -57,15 +73,18 @@ export default function NotificationsDropdown() {
   // Mark single notification as read
   const markReadMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("PATCH", `/api/notifications/${id}/read`, {});
+      const url = currentOrganization?.id
+        ? `/api/notifications/${id}/read?organizationId=${currentOrganization.id}`
+        : `/api/notifications/${id}/read`;
+      await apiRequest("PATCH", url, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", currentOrganization?.id] });
     },
   });
 
   // Handle notification click
-  const handleNotificationClick = (notification: any) => {
+  const handleNotificationClick = (notification: Notification) => {
     // Mark as read if it's not already
     if (!notification.read) {
       markReadMutation.mutate(notification.id);
@@ -81,6 +100,16 @@ export default function NotificationsDropdown() {
     } else if (notification.type === "added_to_group") {
       // Navigate to the group
       navigate(`/groups/${notification.referenceId}`);
+    } else if (notification.type === "added_to_organization" || notification.type === "org_role_changed") {
+      // Navigate to organization details
+      navigate(`/organizations/${notification.referenceId}`);
+    } else if (notification.type === "invited_to_organization") {
+      // Navigate to organizations page
+      navigate('/organizations');
+    } else if (notification.type === "new_meeting" || notification.type === "meeting_updated" ||
+               notification.type === "meeting_cancelled" || notification.type === "meeting_reminder") {
+      // Navigate to meeting details
+      navigate(`/meetings/${notification.referenceId}`);
     }
 
     setIsOpen(false);
@@ -110,7 +139,7 @@ export default function NotificationsDropdown() {
 
   // Count unread notifications
   const unreadCount = notifications?.filter(
-    (notification: any) => !notification.read
+    (notification: Notification) => !notification.read
   ).length || 0;
 
   return (
@@ -152,8 +181,8 @@ export default function NotificationsDropdown() {
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : notifications?.length > 0 ? (
-              notifications.map((notification: any) => (
+            ) : notifications && notifications.length > 0 ? (
+              notifications.map((notification: Notification) => (
                 <div
                   key={notification.id}
                   className={`px-4 py-3 hover:bg-neutral-50 cursor-pointer border-b border-neutral-100 last:border-b-0 ${

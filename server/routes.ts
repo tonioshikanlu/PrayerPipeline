@@ -886,7 +886,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Notifications
   app.get("/api/notifications", isAuthenticated, async (req, res) => {
-    const notifications = await storage.getUserNotifications(req.user.id);
+    const organizationId = req.query.organizationId ? parseInt(req.query.organizationId as string) : undefined;
+    const notifications = await storage.getUserNotifications(req.user.id, organizationId);
     res.json(notifications);
   });
 
@@ -905,7 +906,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/notifications/mark-all-read", isAuthenticated, async (req, res) => {
-    await storage.markAllNotificationsRead(req.user.id);
+    const organizationId = req.query.organizationId ? parseInt(req.query.organizationId as string) : undefined;
+    await storage.markAllNotificationsRead(req.user.id, organizationId);
     res.status(204).send();
   });
 
