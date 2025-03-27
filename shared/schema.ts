@@ -134,6 +134,43 @@ export const subscriptions = pgTable("push_subscriptions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// User notification preferences
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  // App-level notification settings
+  emailNotifications: boolean("email_notifications").default(true).notNull(),
+  pushNotifications: boolean("push_notifications").default(true).notNull(),
+  inAppNotifications: boolean("in_app_notifications").default(true).notNull(),
+  // Per-type notification settings
+  prayerRequests: boolean("prayer_requests").default(true).notNull(),
+  groupInvitations: boolean("group_invitations").default(true).notNull(),
+  comments: boolean("comments").default(true).notNull(),
+  statusUpdates: boolean("status_updates").default(true).notNull(),
+  groupUpdates: boolean("group_updates").default(true).notNull(),
+  // Stale prayer request reminder settings
+  stalePrayerReminders: boolean("stale_prayer_reminders").default(true).notNull(),
+  reminderInterval: integer("reminder_interval").default(7).notNull(), // Days before a prayer request is considered stale
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Group-specific notification preferences
+export const groupNotificationPreferences = pgTable("group_notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  groupId: integer("group_id").notNull(),
+  // Notification settings for this specific group
+  muted: boolean("muted").default(false).notNull(),
+  newPrayerRequests: boolean("new_prayer_requests").default(true).notNull(),
+  prayerStatusUpdates: boolean("prayer_status_updates").default(true).notNull(),
+  newComments: boolean("new_comments").default(true).notNull(),
+  groupUpdates: boolean("group_updates").default(true).notNull(),
+  meetingReminders: boolean("meeting_reminders").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users)
   .pick({
@@ -229,6 +266,31 @@ export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTo
   expiresAt: true,
 });
 
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).pick({
+  userId: true,
+  emailNotifications: true,
+  pushNotifications: true,
+  inAppNotifications: true,
+  prayerRequests: true,
+  groupInvitations: true,
+  comments: true,
+  statusUpdates: true,
+  groupUpdates: true,
+  stalePrayerReminders: true,
+  reminderInterval: true,
+});
+
+export const insertGroupNotificationPreferencesSchema = createInsertSchema(groupNotificationPreferences).pick({
+  userId: true,
+  groupId: true,
+  muted: true,
+  newPrayerRequests: true,
+  prayerStatusUpdates: true,
+  newComments: true,
+  groupUpdates: true,
+  meetingReminders: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -268,6 +330,12 @@ export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 export type PrayingFor = typeof prayingFor.$inferSelect;
 export type InsertPrayingFor = z.infer<typeof insertPrayingForSchema>;
+
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferencesSchema>;
+
+export type GroupNotificationPreference = typeof groupNotificationPreferences.$inferSelect;
+export type InsertGroupNotificationPreference = z.infer<typeof insertGroupNotificationPreferencesSchema>;
 
 // Auth schemas
 export const loginSchema = z.object({

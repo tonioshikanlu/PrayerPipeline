@@ -10,9 +10,11 @@ import {
   comments, type Comment, type InsertComment,
   notifications, type Notification, type InsertNotification,
   prayingFor, type PrayingFor, type InsertPrayingFor,
-  passwordResetTokens, type PasswordResetToken, type InsertPasswordResetToken
+  passwordResetTokens, type PasswordResetToken, type InsertPasswordResetToken,
+  notificationPreferences, type NotificationPreference, type InsertNotificationPreference,
+  groupNotificationPreferences, type GroupNotificationPreference, type InsertGroupNotificationPreference
 } from "@shared/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "./db";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -108,6 +110,17 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
   markPasswordResetTokenUsed(id: number): Promise<PasswordResetToken | undefined>;
+  
+  // Notification Preferences
+  getUserNotificationPreferences(userId: number): Promise<NotificationPreference | undefined>;
+  createNotificationPreferences(preferences: InsertNotificationPreference): Promise<NotificationPreference>;
+  updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreference>): Promise<NotificationPreference | undefined>;
+  
+  // Group Notification Preferences
+  getGroupNotificationPreferences(userId: number, groupId: number): Promise<GroupNotificationPreference | undefined>;
+  getUserGroupNotificationPreferences(userId: number): Promise<GroupNotificationPreference[]>;
+  createGroupNotificationPreferences(preferences: InsertGroupNotificationPreference): Promise<GroupNotificationPreference>;
+  updateGroupNotificationPreferences(userId: number, groupId: number, preferences: Partial<InsertGroupNotificationPreference>): Promise<GroupNotificationPreference | undefined>;
   
   // Session store
   sessionStore: any;
@@ -914,6 +927,87 @@ export class MemStorage implements IStorage {
     this.passwordResetTokensMap.set(id, updatedToken);
     return updatedToken;
   }
+
+  // Initialize notification preferences maps and counters
+  private notificationPreferencesMap = new Map<number, NotificationPreference>();
+  private groupNotificationPreferencesMap = new Map<number, GroupNotificationPreference>();
+  private notificationPreferenceIdCounter = 1;
+  private groupNotificationPreferenceIdCounter = 1;
+
+  // Notification Preferences methods
+  async getUserNotificationPreferences(userId: number): Promise<NotificationPreference | undefined> {
+    return Array.from(this.notificationPreferencesMap.values())
+      .find(prefs => prefs.userId === userId);
+  }
+
+  async createNotificationPreferences(preferences: InsertNotificationPreference): Promise<NotificationPreference> {
+    const id = this.notificationPreferenceIdCounter++;
+    const now = new Date();
+    
+    const newPrefs: NotificationPreference = {
+      ...preferences,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.notificationPreferencesMap.set(id, newPrefs);
+    return newPrefs;
+  }
+
+  async updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreference>): Promise<NotificationPreference | undefined> {
+    const existing = await this.getUserNotificationPreferences(userId);
+    if (!existing) return undefined;
+    
+    const updatedPrefs = { 
+      ...existing, 
+      ...preferences,
+      updatedAt: new Date()
+    };
+    
+    this.notificationPreferencesMap.set(existing.id, updatedPrefs);
+    return updatedPrefs;
+  }
+
+  // Group Notification Preferences methods
+  async getGroupNotificationPreferences(userId: number, groupId: number): Promise<GroupNotificationPreference | undefined> {
+    return Array.from(this.groupNotificationPreferencesMap.values())
+      .find(prefs => prefs.userId === userId && prefs.groupId === groupId);
+  }
+
+  async getUserGroupNotificationPreferences(userId: number): Promise<GroupNotificationPreference[]> {
+    return Array.from(this.groupNotificationPreferencesMap.values())
+      .filter(prefs => prefs.userId === userId);
+  }
+
+  async createGroupNotificationPreferences(preferences: InsertGroupNotificationPreference): Promise<GroupNotificationPreference> {
+    const id = this.groupNotificationPreferenceIdCounter++;
+    const now = new Date();
+    
+    const newPrefs: GroupNotificationPreference = {
+      ...preferences,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.groupNotificationPreferencesMap.set(id, newPrefs);
+    return newPrefs;
+  }
+
+  async updateGroupNotificationPreferences(userId: number, groupId: number, preferences: Partial<InsertGroupNotificationPreference>): Promise<GroupNotificationPreference | undefined> {
+    const existing = await this.getGroupNotificationPreferences(userId, groupId);
+    if (!existing) return undefined;
+    
+    const updatedPrefs = { 
+      ...existing, 
+      ...preferences,
+      updatedAt: new Date()
+    };
+    
+    this.groupNotificationPreferencesMap.set(existing.id, updatedPrefs);
+    return updatedPrefs;
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1030,9 +1124,11 @@ export class DatabaseStorage implements IStorage {
     
     // Get organizations for these memberships
     const orgIds = memberships.map(m => m.organizationId);
+    
+    // Use in operator for PostgreSQL array comparison
     return await db.select()
       .from(organizations)
-      .where(sql`${organizations.id} IN (${orgIds.join(', ')})`);
+      .where(inArray(organizations.id, orgIds));
   }
   
   async updateOrganization(id: number, orgUpdates: Partial<InsertOrganization>): Promise<Organization | undefined> {
@@ -1203,7 +1299,7 @@ export class DatabaseStorage implements IStorage {
     const tagIds = groupTagEntries.map(entry => entry.tagId);
     return db.select()
       .from(organizationTags)
-      .where(sql`${organizationTags.id} IN (${tagIds.join(',')})`);
+      .where(inArray(organizationTags.id, tagIds));
   }
   
   async removeGroupTag(groupId: number, tagId: number): Promise<boolean> {
