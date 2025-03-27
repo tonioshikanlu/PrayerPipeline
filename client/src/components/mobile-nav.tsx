@@ -10,7 +10,7 @@ export default function MobileNav({ active }: MobileNavProps) {
 
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-neutral-200 py-2 md:hidden">
-      <div className="grid grid-cols-4 gap-1">
+      <div className="grid grid-cols-5 gap-1">
         <button
           onClick={() => navigate("/")}
           className={`flex flex-col items-center justify-center py-1 ${
@@ -31,6 +31,18 @@ export default function MobileNav({ active }: MobileNavProps) {
         >
           <Users className="h-6 w-6" />
           <span className="text-xs mt-1">Groups</span>
+        </button>
+        <button
+          onClick={() => {
+            // Navigate to explore groups page
+            navigate("/explore");
+          }}
+          className={`flex flex-col items-center justify-center py-1 ${
+            active === "explore" ? "text-primary" : "text-neutral-500 hover:text-primary"
+          }`}
+        >
+          <Search className="h-6 w-6" />
+          <span className="text-xs mt-1">Explore</span>
         </button>
         <button
           onClick={() => {
