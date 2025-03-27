@@ -62,9 +62,20 @@ export function setupAuth(app: Express) {
     try {
       const { username, password, name, email, role } = req.body;
 
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ message: "Invalid email address" });
+      }
+
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Check for existing email
+      const users = await storage.getUsers();
+      const emailExists = users.some(user => user.email === email);
+      if (emailExists) {
+        return res.status(400).json({ message: "Email already in use" });
       }
 
       const user = await storage.createUser({

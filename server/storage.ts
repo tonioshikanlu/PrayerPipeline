@@ -16,6 +16,7 @@ export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, userData: Partial<User>): Promise<User | undefined>;
   updateUserRole(id: number, role: string): Promise<User | undefined>;
@@ -117,6 +118,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.usersMap.values()).find(
       (user) => user.username === username,
     );
+  }
+  
+  async getUsers(): Promise<User[]> {
+    return Array.from(this.usersMap.values());
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
