@@ -8,10 +8,10 @@ import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/header";
 import MobileNav from "@/components/mobile-nav";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { UserCircle, Bell, BookOpen, User, Settings as SettingsIcon, Camera } from "lucide-react";
+import { Bell, User, Settings as SettingsIcon, Camera, ChevronRight } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -39,11 +39,6 @@ export default function ProfilePage() {
   // Fetch user's recent prayer requests
   const { data: recentRequests = [], isLoading: isLoadingRequests } = useQuery<any[]>({
     queryKey: ["/api/requests/user/recent"],
-  });
-
-  // Fetch user's groups
-  const { data: userGroups = [], isLoading: isLoadingGroups } = useQuery<any[]>({
-    queryKey: ["/api/groups/user"],
   });
 
   // Profile update form schema
@@ -161,22 +156,6 @@ export default function ProfilePage() {
                         Profile Overview
                       </Button>
                       <Button
-                        variant={activeTab === "prayers" ? "secondary" : "ghost"}
-                        onClick={() => setActiveTab("prayers")}
-                        className="justify-start px-3 py-2 h-auto font-normal"
-                      >
-                        <BookOpen className="h-4 w-4 mr-2" />
-                        My Prayer Requests
-                      </Button>
-                      <Button
-                        variant={activeTab === "groups" ? "secondary" : "ghost"}
-                        onClick={() => setActiveTab("groups")}
-                        className="justify-start px-3 py-2 h-auto font-normal"
-                      >
-                        <UserCircle className="h-4 w-4 mr-2" />
-                        My Groups
-                      </Button>
-                      <Button
                         variant={activeTab === "notifications" ? "secondary" : "ghost"}
                         onClick={() => setActiveTab("notifications")}
                         className="justify-start px-3 py-2 h-auto font-normal"
@@ -201,222 +180,184 @@ export default function ProfilePage() {
             {/* Content Area */}
             <div className="w-full md:w-2/3 lg:w-3/4">
               {activeTab === "overview" && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Profile Information</CardTitle>
-                    <CardDescription>
-                      Update your personal information
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Form {...profileForm}>
-                      <form onSubmit={profileForm.handleSubmit(onSubmitProfile)} className="space-y-6">
-                        <div className="flex flex-col items-center mb-6">
-                          <FormLabel className="mb-2">Profile Picture</FormLabel>
-                          <div 
-                            className="relative cursor-pointer group"
-                            onClick={handleAvatarClick}
-                          >
-                            <Avatar className="h-32 w-32 border-2 border-border">
-                              {avatarPreview ? (
-                                <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
-                              ) : user?.avatar ? (
-                                <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
-                              ) : (
-                                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                                  {getInitials()}
-                                </AvatarFallback>
-                              )}
-                            </Avatar>
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Camera className="h-8 w-8 text-white" />
-                            </div>
-                          </div>
-                          <FormDescription className="mt-2 text-center">
-                            Click to upload or change your profile picture
-                          </FormDescription>
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                          />
-                        </div>
-
-                        <FormField
-                          control={profileForm.control}
-                          name="name"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Full Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Your name" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={profileForm.control}
-                          name="email"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Email</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Your email" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={profileForm.control}
-                          name="phone"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Phone (optional)</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="tel"
-                                  inputMode="tel"
-                                  placeholder="(123) 456-7890" 
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={profileForm.control}
-                          name="bio"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Bio</FormLabel>
-                              <FormControl>
-                                <Textarea 
-                                  placeholder="Tell us a little about yourself" 
-                                  rows={4}
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormDescription>
-                                This will be visible to other members of your prayer groups
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <div className="flex justify-end">
-                          <Button 
-                            type="submit"
-                            disabled={updateProfileMutation.isPending}
-                          >
-                            {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
-                          </Button>
-                        </div>
-                      </form>
-                    </Form>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {activeTab === "prayers" && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>My Prayer Requests</CardTitle>
-                    <CardDescription>
-                      Manage your prayer requests
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {isLoadingRequests ? (
-                        <>
-                          <Skeleton className="h-40 w-full" />
-                          <Skeleton className="h-40 w-full" />
-                        </>
-                      ) : recentRequests.length > 0 ? (
-                        recentRequests.map((request) => (
-                          <PrayerCard
-                            key={request.id}
-                            request={request}
-                            onClick={() => navigate(`/requests/${request.id}`)}
-                          />
-                        ))
-                      ) : (
-                        <div className="col-span-full text-center py-12 bg-muted rounded-lg">
-                          <p className="text-muted-foreground mb-4">
-                            You haven't created any prayer requests yet.
-                          </p>
-                          <Button onClick={() => navigate("/")}>
-                            Create a Prayer Request
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-              {activeTab === "groups" && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>My Groups</CardTitle>
-                    <CardDescription>
-                      Prayer groups you're a part of
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {isLoadingGroups ? (
-                        <>
-                          <Skeleton className="h-32 w-full" />
-                          <Skeleton className="h-32 w-full" />
-                        </>
-                      ) : userGroups.length > 0 ? (
-                        userGroups.map((group) => (
-                          <Card key={group.id} className="overflow-hidden">
-                            <CardHeader className="p-4 pb-2">
-                              <CardTitle className="text-lg">{group.name}</CardTitle>
-                              <CardDescription className="text-sm line-clamp-2">
-                                {group.description}
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-0">
-                              <div className="flex justify-between items-center mt-2">
-                                <div className="text-sm text-muted-foreground">
-                                  {new Date(group.createdAt).toLocaleDateString()}
-                                </div>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline"
-                                  onClick={() => navigate(`/groups/${group.id}`)}
-                                >
-                                  View Group
-                                </Button>
+                <>
+                  {/* Profile Information Card */}
+                  <Card className="mb-6">
+                    <CardHeader>
+                      <CardTitle>Profile Information</CardTitle>
+                      <CardDescription>
+                        Update your personal information
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Form {...profileForm}>
+                        <form onSubmit={profileForm.handleSubmit(onSubmitProfile)} className="space-y-6">
+                          <div className="flex flex-col items-center mb-6">
+                            <FormLabel className="mb-2">Profile Picture</FormLabel>
+                            <div 
+                              className="relative cursor-pointer group"
+                              onClick={handleAvatarClick}
+                            >
+                              <Avatar className="h-32 w-32 border-2 border-border">
+                                {avatarPreview ? (
+                                  <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                                ) : user?.avatar ? (
+                                  <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                                    {getInitials()}
+                                  </AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Camera className="h-8 w-8 text-white" />
                               </div>
-                            </CardContent>
-                          </Card>
-                        ))
-                      ) : (
-                        <div className="col-span-full text-center py-12 bg-muted rounded-lg">
-                          <p className="text-muted-foreground mb-4">
-                            You aren't a member of any prayer groups yet.
-                          </p>
-                          <Button onClick={() => navigate("/")}>
-                            Find or Create a Group
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                            </div>
+                            <FormDescription className="mt-2 text-center">
+                              Click to upload or change your profile picture
+                            </FormDescription>
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              className="hidden"
+                              accept="image/*"
+                              onChange={handleFileChange}
+                            />
+                          </div>
+
+                          <FormField
+                            control={profileForm.control}
+                            name="name"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full Name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Your name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={profileForm.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Your email" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={profileForm.control}
+                            name="phone"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Phone (optional)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="tel"
+                                    inputMode="tel"
+                                    placeholder="(123) 456-7890" 
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={profileForm.control}
+                            name="bio"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Bio</FormLabel>
+                                <FormControl>
+                                  <Textarea 
+                                    placeholder="Tell us a little about yourself" 
+                                    rows={4}
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  This will be visible to other members of your prayer groups
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <div className="flex justify-end">
+                            <Button 
+                              type="submit"
+                              disabled={updateProfileMutation.isPending}
+                            >
+                              {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                            </Button>
+                          </div>
+                        </form>
+                      </Form>
+                    </CardContent>
+                  </Card>
+
+                  {/* My Prayer Journey Card */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>My Prayer Journey</CardTitle>
+                      <CardDescription>
+                        Track your prayer requests and their progress
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {isLoadingRequests ? (
+                          <>
+                            <Skeleton className="h-40 w-full" />
+                            <Skeleton className="h-40 w-full" />
+                            <Skeleton className="h-40 w-full" />
+                          </>
+                        ) : recentRequests.length > 0 ? (
+                          <>
+                            {recentRequests.slice(0, 3).map((request) => (
+                              <PrayerCard
+                                key={request.id}
+                                request={request}
+                                onClick={() => navigate(`/requests/${request.id}`)}
+                              />
+                            ))}
+                          </>
+                        ) : (
+                          <div className="text-center py-12 bg-muted rounded-lg">
+                            <p className="text-muted-foreground mb-4">
+                              You haven't created any prayer requests yet.
+                            </p>
+                            <Button onClick={() => navigate("/")}>
+                              Create a Prayer Request
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                    {recentRequests.length > 3 && (
+                      <CardFooter className="flex justify-center pt-0">
+                        <Button 
+                          variant="outline" 
+                          className="w-full"
+                          onClick={() => navigate("/prayer-requests")}
+                        >
+                          View All Prayer Requests
+                          <ChevronRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      </CardFooter>
+                    )}
+                  </Card>
+                </>
               )}
               
               {activeTab === "notifications" && (
@@ -512,6 +453,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
+      
       <MobileNav active="profile" />
     </div>
   );

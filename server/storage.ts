@@ -84,7 +84,7 @@ export interface IStorage {
   createPrayerRequest(request: InsertPrayerRequest): Promise<PrayerRequest>;
   getPrayerRequest(id: number): Promise<PrayerRequest | undefined>;
   getGroupPrayerRequests(groupId: number): Promise<PrayerRequest[]>;
-  getUserPrayerRequests(userId: number): Promise<PrayerRequest[]>;
+  getUserPrayerRequests(userId: number, limit?: number | null): Promise<PrayerRequest[]>;
   getRecentPrayerRequests(userId: number, limit?: number): Promise<PrayerRequest[]>;
   getRecentPrayerRequestsByGroups(groupIds: number[], limit?: number): Promise<PrayerRequest[]>;
   updatePrayerRequest(id: number, request: Partial<InsertPrayerRequest>): Promise<PrayerRequest | undefined>;
@@ -710,10 +710,12 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
   
-  async getUserPrayerRequests(userId: number): Promise<PrayerRequest[]> {
-    return Array.from(this.prayerRequestsMap.values())
+  async getUserPrayerRequests(userId: number, limit?: number | null): Promise<PrayerRequest[]> {
+    const requests = Array.from(this.prayerRequestsMap.values())
       .filter(request => request.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    return limit ? requests.slice(0, limit) : requests;
   }
   
   async getRecentPrayerRequests(userId: number, limit = 5): Promise<PrayerRequest[]> {

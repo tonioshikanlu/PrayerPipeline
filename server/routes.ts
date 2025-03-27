@@ -777,6 +777,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     res.json(enrichedRequests);
   });
+  
+  // Get all prayer requests from the user (for prayer journey page)
+  app.get("/api/requests/user/all", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const organizationId = req.query.organizationId ? parseInt(req.query.organizationId as string) : null;
+    
+    if (!organizationId) {
+      return res.status(400).json({ error: "Organization ID is required" });
+    }
+    
+    // Get user's groups in this organization
+    const userGroups = await storage.getUserGroups(req.user.id);
+    const organizationGroups = userGroups.filter(group => group.organizationId === organizationId);
+    
+    if (organizationGroups.length === 0) {
+      return res.json([]);
+    }
+    
+    // Get prayer requests only from the user's groups in this organization
+    const organizationGroupIds = organizationGroups.map(group => group.id);
+    
+    // Get all prayer requests by the user
+    const requests = await storage.getUserPrayerRequests(req.user.id);
+    
+    // Filter to only include requests in groups from this organization
+    const orgRequests = requests.filter(request => 
+      organizationGroupIds.includes(request.groupId)
+    );
+    
+    // Enrich each request with group and comment info
+    const enrichedRequests = await Promise.all(
+      orgRequests.map(async (request) => {
+        const comments = await storage.getPrayerRequestComments(request.id);
+        const group = await storage.getGroup(request.groupId);
+        
+        return {
+          ...request,
+          commentCount: comments.length,
+          group: group ? {
+            id: group.id,
+            name: group.name
+          } : null
+        };
+      })
+    );
+    
+    res.json(enrichedRequests);
+  });
 
   // Comments
   app.post("/api/requests/:requestId/comments", isAuthenticated, async (req, res, next) => {

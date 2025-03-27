@@ -24,11 +24,16 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
+interface QueryFnOptions {
+  on401?: UnauthorizedBehavior;
+  params?: Record<string, any>;
+}
+
+export const getQueryFn: <T>(options?: QueryFnOptions) => QueryFunction<T> =
+  (options = {}) =>
   async ({ queryKey }) => {
+    const { on401: unauthorizedBehavior = "throw", params = {} } = options;
+    
     // Build URL with query parameters
     let url: string;
     
@@ -56,6 +61,23 @@ export const getQueryFn: <T>(options: {
     } else {
       // Simple case: just use the first element as the URL
       url = queryKey[0] as string;
+    }
+    
+    // Add additional parameters if provided
+    if (params && Object.keys(params).length > 0) {
+      const searchParams = new URLSearchParams();
+      
+      // Add all params to the URL
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      }
+      
+      const queryString = searchParams.toString();
+      if (queryString) {
+        url = `${url}${url.includes('?') ? '&' : '?'}${queryString}`;
+      }
     }
 
     const res = await fetch(url, {

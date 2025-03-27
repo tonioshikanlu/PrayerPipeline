@@ -9,6 +9,7 @@ import GroupDetails from "@/pages/group-details";
 import RequestDetails from "@/pages/request-details";
 import MeetingDetails from "@/pages/meeting-details";
 import ProfilePage from "@/pages/profile-page";
+import PrayerRequestsPage from "@/pages/prayer-requests-page";
 import SettingsPage from "@/pages/settings-page";
 import ExploreGroupsPage from "@/pages/explore-groups-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
@@ -30,6 +31,7 @@ function Router() {
       <OrganizationProtectedRoute path="/requests/:requestId" component={RequestDetails} />
       <OrganizationProtectedRoute path="/meetings/:meetingId" component={MeetingDetails} />
       <OrganizationProtectedRoute path="/profile" component={ProfilePage} />
+      <OrganizationProtectedRoute path="/prayer-requests" component={PrayerRequestsPage} />
       <OrganizationProtectedRoute path="/settings" component={SettingsPage} />
       <OrganizationProtectedRoute path="/explore" component={ExploreGroupsPage} />
       <OrganizationProtectedRoute path="/organizations" component={OrganizationsPage} />
