@@ -540,8 +540,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const groupId = parseInt(req.params.groupId);
       
+      // Pre-process followUpDate if it exists
+      let processedBody = { ...req.body };
+      if (processedBody.followUpDate && typeof processedBody.followUpDate === 'string') {
+        processedBody.followUpDate = new Date(processedBody.followUpDate);
+      }
+      
       const requestData = insertPrayerRequestSchema.parse({
-        ...req.body,
+        ...processedBody,
         groupId,
         userId: req.user.id
       });
@@ -638,7 +644,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const requestId = parseInt(req.params.requestId);
       
-      const updates = insertPrayerRequestSchema.partial().parse(req.body);
+      // Pre-process followUpDate if it exists
+      let processedBody = { ...req.body };
+      if (processedBody.followUpDate && typeof processedBody.followUpDate === 'string') {
+        processedBody.followUpDate = new Date(processedBody.followUpDate);
+      }
+      
+      const updates = insertPrayerRequestSchema.partial().parse(processedBody);
       
       const updatedRequest = await storage.updatePrayerRequest(requestId, updates);
       if (!updatedRequest) {
