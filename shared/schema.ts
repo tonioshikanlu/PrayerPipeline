@@ -180,6 +180,14 @@ export const groupNotificationPreferences = pgTable("group_notification_preferen
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Favorite groups table
+export const favoriteGroups = pgTable("favorite_groups", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  groupId: integer("group_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users)
   .pick({
@@ -308,6 +316,11 @@ export const insertGroupNotificationPreferencesSchema = createInsertSchema(group
   meetingReminders: true,
 });
 
+export const insertFavoriteGroupSchema = createInsertSchema(favoriteGroups).pick({
+  userId: true,
+  groupId: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -353,6 +366,9 @@ export type InsertNotificationPreference = z.infer<typeof insertNotificationPref
 
 export type GroupNotificationPreference = typeof groupNotificationPreferences.$inferSelect;
 export type InsertGroupNotificationPreference = z.infer<typeof insertGroupNotificationPreferencesSchema>;
+
+export type FavoriteGroup = typeof favoriteGroups.$inferSelect;
+export type InsertFavoriteGroup = z.infer<typeof insertFavoriteGroupSchema>;
 
 // Auth schemas
 export const loginSchema = z.object({

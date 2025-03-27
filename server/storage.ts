@@ -14,7 +14,8 @@ import {
   notificationPreferences, type NotificationPreference, type InsertNotificationPreference,
   groupNotificationPreferences, type GroupNotificationPreference, type InsertGroupNotificationPreference,
   meetings, type Meeting, type InsertMeeting,
-  meetingNotes, type MeetingNote, type InsertMeetingNote
+  meetingNotes, type MeetingNote, type InsertMeetingNote,
+  favoriteGroups, type FavoriteGroup, type InsertFavoriteGroup
 } from "@shared/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db, pool } from "./db";
@@ -139,6 +140,12 @@ export interface IStorage {
   updateMeetingNotes(id: number, notes: Partial<InsertMeetingNote>): Promise<MeetingNote | undefined>;
   deleteMeetingNotes(id: number): Promise<boolean>;
   createPrayerRequestsFromNotes(meetingId: number, groupId: number, userId: number): Promise<PrayerRequest[]>;
+  
+  // Favorite Groups
+  addFavoriteGroup(userId: number, groupId: number): Promise<FavoriteGroup>;
+  removeFavoriteGroup(userId: number, groupId: number): Promise<boolean>;
+  getUserFavoriteGroups(userId: number): Promise<Group[]>;
+  isFavoriteGroup(userId: number, groupId: number): Promise<boolean>;
   
   // Session store
   sessionStore: any;
@@ -1358,6 +1365,58 @@ export class MemStorage implements IStorage {
     }
     
     return staleRequests.length;
+  }
+  
+  // Favorite Groups
+  private favoriteGroupsMap = new Map<number, FavoriteGroup>();
+  private favoriteGroupIdCounter = 1;
+  
+  async addFavoriteGroup(userId: number, groupId: number): Promise<FavoriteGroup> {
+    // Check if it's already a favorite
+    const existing = Array.from(this.favoriteGroupsMap.values())
+      .find(fav => fav.userId === userId && fav.groupId === groupId);
+      
+    if (existing) {
+      return existing;
+    }
+    
+    const id = this.favoriteGroupIdCounter++;
+    const now = new Date();
+    
+    const favoriteGroup: FavoriteGroup = {
+      id,
+      userId,
+      groupId,
+      createdAt: now
+    };
+    
+    this.favoriteGroupsMap.set(id, favoriteGroup);
+    return favoriteGroup;
+  }
+  
+  async removeFavoriteGroup(userId: number, groupId: number): Promise<boolean> {
+    const favorite = Array.from(this.favoriteGroupsMap.values())
+      .find(fav => fav.userId === userId && fav.groupId === groupId);
+      
+    if (!favorite) {
+      return false;
+    }
+    
+    return this.favoriteGroupsMap.delete(favorite.id);
+  }
+  
+  async getUserFavoriteGroups(userId: number): Promise<Group[]> {
+    const favoriteGroupIds = Array.from(this.favoriteGroupsMap.values())
+      .filter(fav => fav.userId === userId)
+      .map(fav => fav.groupId);
+      
+    return Array.from(this.groupsMap.values())
+      .filter(group => favoriteGroupIds.includes(group.id));
+  }
+  
+  async isFavoriteGroup(userId: number, groupId: number): Promise<boolean> {
+    return Array.from(this.favoriteGroupsMap.values())
+      .some(fav => fav.userId === userId && fav.groupId === groupId);
   }
 }
 
@@ -2625,6 +2684,77 @@ export class DatabaseStorage implements IStorage {
     }
     
     return staleRequests.length;
+  }
+  
+  // Favorite Groups methods
+  async addFavoriteGroup(userId: number, groupId: number): Promise<FavoriteGroup> {
+    // Check if it's already a favorite
+    const existing = await db.select()
+      .from(favoriteGroups)
+      .where(
+        and(
+          eq(favoriteGroups.userId, userId),
+          eq(favoriteGroups.groupId, groupId)
+        )
+      );
+      
+    if (existing.length > 0) {
+      return existing[0];
+    }
+    
+    // Add as favorite
+    const [favoriteGroup] = await db.insert(favoriteGroups)
+      .values({
+        userId,
+        groupId
+      })
+      .returning();
+      
+    return favoriteGroup;
+  }
+  
+  async removeFavoriteGroup(userId: number, groupId: number): Promise<boolean> {
+    const result = await db.delete(favoriteGroups)
+      .where(
+        and(
+          eq(favoriteGroups.userId, userId),
+          eq(favoriteGroups.groupId, groupId)
+        )
+      )
+      .returning();
+      
+    return result.length > 0;
+  }
+  
+  async getUserFavoriteGroups(userId: number): Promise<Group[]> {
+    // Get all favorited group IDs for this user
+    const favorites = await db.select()
+      .from(favoriteGroups)
+      .where(eq(favoriteGroups.userId, userId));
+      
+    if (favorites.length === 0) {
+      return [];
+    }
+    
+    const groupIds = favorites.map(fav => fav.groupId);
+    
+    // Get the group details
+    return db.select()
+      .from(groups)
+      .where(inArray(groups.id, groupIds));
+  }
+  
+  async isFavoriteGroup(userId: number, groupId: number): Promise<boolean> {
+    const result = await db.select()
+      .from(favoriteGroups)
+      .where(
+        and(
+          eq(favoriteGroups.userId, userId),
+          eq(favoriteGroups.groupId, groupId)
+        )
+      );
+      
+    return result.length > 0;
   }
 }
 

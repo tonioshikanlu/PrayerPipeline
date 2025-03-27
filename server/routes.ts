@@ -907,6 +907,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ success, count });
   });
 
+  // Favorite Groups routes
+  app.post("/api/groups/:groupId/favorite", isAuthenticated, async (req, res) => {
+    const groupId = parseInt(req.params.groupId);
+    if (isNaN(groupId)) {
+      return res.status(400).json({ message: "Invalid group ID" });
+    }
+    
+    assertUser(req);
+    const userId = req.user.id;
+    
+    // Check if group exists
+    const group = await storage.getGroup(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    
+    // Check if user is a member of the group
+    const member = await storage.getGroupMember(groupId, userId);
+    if (!member) {
+      return res.status(403).json({ message: "You must be a member of the group to favorite it" });
+    }
+    
+    try {
+      const favorite = await storage.addFavoriteGroup(userId, groupId);
+      res.status(201).json(favorite);
+    } catch (error) {
+      console.error("Error adding favorite group:", error);
+      res.status(500).json({ message: "Failed to favorite group" });
+    }
+  });
+  
+  app.delete("/api/groups/:groupId/favorite", isAuthenticated, async (req, res) => {
+    const groupId = parseInt(req.params.groupId);
+    if (isNaN(groupId)) {
+      return res.status(400).json({ message: "Invalid group ID" });
+    }
+    
+    assertUser(req);
+    const userId = req.user.id;
+    
+    try {
+      const success = await storage.removeFavoriteGroup(userId, groupId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Group is not in favorites" });
+      }
+      
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("Error removing favorite group:", error);
+      res.status(500).json({ message: "Failed to remove group from favorites" });
+    }
+  });
+  
+  app.get("/api/groups/favorites", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const userId = req.user.id;
+    
+    try {
+      const favoriteGroups = await storage.getUserFavoriteGroups(userId);
+      res.json(favoriteGroups);
+    } catch (error) {
+      console.error("Error fetching favorite groups:", error);
+      res.status(500).json({ message: "Failed to fetch favorite groups" });
+    }
+  });
+  
+  app.get("/api/groups/:groupId/favorite", isAuthenticated, async (req, res) => {
+    const groupId = parseInt(req.params.groupId);
+    if (isNaN(groupId)) {
+      return res.status(400).json({ message: "Invalid group ID" });
+    }
+    
+    assertUser(req);
+    const userId = req.user.id;
+    
+    try {
+      const isFavorite = await storage.isFavoriteGroup(userId, groupId);
+      res.json({ isFavorite });
+    } catch (error) {
+      console.error("Error checking if group is favorite:", error);
+      res.status(500).json({ message: "Failed to check favorite status" });
+    }
+  });
+
   // User profile routes
   app.put("/api/user/profile", isAuthenticated, async (req, res) => {
     const { name, email, bio } = req.body;

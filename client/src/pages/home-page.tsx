@@ -2,12 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { useFavoriteGroups } from "@/hooks/use-favorite-groups";
 import Header from "@/components/header";
 import PrayerCard from "@/components/prayer-card";
 import GroupCard from "@/components/group-card";
 import MobileNav from "@/components/mobile-nav";
 import CreateGroupModal from "@/components/create-group-modal";
 import CreateRequestModal from "@/components/create-request-modal";
+import FavoriteGroupsSection from "@/components/favorite-groups-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -64,6 +66,9 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* First column - Your Groups */}
             <div>
+              {/* Favorite Groups Section */}
+              <FavoriteGroupsSection />
+              
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium font-heading text-neutral-800">Your Groups</h3>
                 <Button 
@@ -135,21 +140,14 @@ export default function HomePage() {
                   </>
                 ) : recentRequests?.length > 0 ? (
                   <>
-                    {recentRequests.slice(0, 2).map((request) => (
+                    {/* Show only the 5 most recent prayer requests */}
+                    {recentRequests.slice(0, 5).map((request) => (
                       <PrayerCard 
                         key={request.id} 
                         request={request} 
                         onClick={() => navigate(`/requests/${request.id}`)}
                       />
                     ))}
-                    {recentRequests.length > 2 && (
-                      <Button
-                        variant="outline"
-                        className="text-center w-full border border-neutral-200 rounded-lg py-2 text-sm text-neutral-600 hover:bg-neutral-50 transition-colors"
-                      >
-                        View All Requests
-                      </Button>
-                    )}
                   </>
                 ) : (
                   <div className="text-center py-8 bg-neutral-50 rounded-lg border border-neutral-200">

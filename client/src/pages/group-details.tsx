@@ -7,6 +7,7 @@ import MobileNav from "@/components/mobile-nav";
 import PrayerCard from "@/components/prayer-card";
 import CreateRequestModal from "@/components/create-request-modal";
 import MeetingsTab from "@/components/meetings-tab";
+import { useFavoriteGroups, FavoriteButton } from "@/hooks/use-favorite-groups";
 import { ArrowLeft, PlusIcon, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -202,13 +203,16 @@ export default function GroupDetails() {
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <h2 className="text-2xl font-bold font-heading text-neutral-800">
-                {isLoadingGroup ? (
-                  <Skeleton className="h-8 w-40" />
-                ) : (
-                  group?.name
-                )}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-bold font-heading text-neutral-800">
+                  {isLoadingGroup ? (
+                    <Skeleton className="h-8 w-40" />
+                  ) : (
+                    group?.name
+                  )}
+                </h2>
+                {!isLoadingGroup && group && <FavoriteGroupButton groupId={group.id} />}
+              </div>
             </div>
             <p className="text-neutral-600">
               {isLoadingGroup ? (
@@ -671,5 +675,23 @@ export default function GroupDetails() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// FavoriteGroupButton component to handle favorite status for a group
+function FavoriteGroupButton({ groupId }: { groupId: number }) {
+  const { useIsFavorite, toggleFavorite, isPendingAdd, isPendingRemove } = useFavoriteGroups();
+  const { data, isLoading } = useIsFavorite(groupId);
+  const isFavorite = data?.isFavorite || false;
+  const isPending = isPendingAdd || isPendingRemove;
+
+  return (
+    <FavoriteButton 
+      groupId={groupId}
+      isFavorite={isFavorite}
+      isLoading={isLoading || isPending}
+      onToggle={() => toggleFavorite(groupId, isFavorite)}
+      size="default"
+    />
   );
 }
