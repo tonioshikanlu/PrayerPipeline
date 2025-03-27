@@ -9,7 +9,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  role: text("role", { enum: ["regular", "leader", "admin"] }).default("regular").notNull(),
+  role: text("role").default("regular").notNull(),
   phone: text("phone"),
   avatar: text("avatar"),
   bio: text("bio"),
@@ -39,7 +39,7 @@ export const organizationMembers = pgTable("organization_members", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id").notNull(),
   userId: integer("user_id").notNull(),
-  role: text("role", { enum: ["member", "admin"] }).default("member").notNull(),
+  role: text("role").default("member").notNull(),
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
@@ -49,8 +49,8 @@ export const groups = pgTable("groups", {
   name: text("name").notNull(),
   description: text("description"),
   organizationId: integer("organization_id").notNull(),
-  category: text("category", { enum: ["health", "career", "family", "relationship", "other"] }).default("other").notNull(),
-  privacy: text("privacy", { enum: ["open", "request", "invite"] }).default("open").notNull(),
+  category: text("category").default("other").notNull(),
+  privacy: text("privacy").default("open").notNull(),
   leaderRotation: integer("leader_rotation").default(0), // 0 = no rotation, 30 = 30 days, etc.
   createdAt: timestamp("created_at").defaultNow().notNull(),
   createdBy: integer("created_by").notNull(),
@@ -77,7 +77,7 @@ export const groupMembers = pgTable("group_members", {
   id: serial("id").primaryKey(),
   groupId: integer("group_id").notNull(),
   userId: integer("user_id").notNull(),
-  role: text("role", { enum: ["member", "leader"] }).default("member").notNull(),
+  role: text("role").default("member").notNull(),
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
@@ -88,9 +88,9 @@ export const prayerRequests = pgTable("prayer_requests", {
   userId: integer("user_id").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
+  urgency: text("urgency").default("medium").notNull(),
   isAnonymous: boolean("is_anonymous").default(false).notNull(),
-  status: text("status", { enum: ["waiting", "answered", "declined"] }).default("waiting").notNull(),
+  status: text("status").default("waiting").notNull(),
   followUpDate: timestamp("follow_up_date"),
   isStale: boolean("is_stale").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -111,13 +111,7 @@ export const comments = pgTable("comments", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
-  type: text("type", { 
-    enum: [
-      "new_request", "new_comment", "status_update", 
-      "added_to_group", "added_to_organization", "org_role_changed", "invited_to_organization",
-      "new_meeting", "meeting_updated", "meeting_cancelled", "meeting_reminder"
-    ] 
-  }).notNull(),
+  type: text("type").notNull(),
   message: text("message").notNull(),
   read: boolean("read").default(false).notNull(),
   referenceId: integer("reference_id"), // ID of the related entity (request, comment, etc.)
@@ -429,14 +423,12 @@ export const meetings = pgTable("meetings", {
   groupId: integer("group_id").notNull(),
   title: text("title").notNull(),
   description: text("description"),
-  meetingType: text("meeting_type", { enum: ["zoom", "google_meet"] }).notNull(),
+  meetingType: text("meeting_type").notNull(),
   meetingLink: text("meeting_link").notNull(),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   isRecurring: boolean("is_recurring").default(false).notNull(),
-  recurringPattern: text("recurring_pattern", { 
-    enum: ["daily", "weekly", "biweekly", "monthly"] 
-  }),
+  recurringPattern: text("recurring_pattern"),
   recurringDay: integer("recurring_day"), // 0-6 for weekly (0 = Sunday), 1-31 for monthly
   recurringUntil: timestamp("recurring_until"), // When the recurring series ends, null for indefinite
   createdBy: integer("created_by").notNull(),
