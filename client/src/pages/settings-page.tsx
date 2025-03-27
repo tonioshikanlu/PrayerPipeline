@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import Header from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   Bell,
   Lock,
@@ -14,6 +16,9 @@ import {
   Moon,
   Sun,
   Palette,
+  BellRing,
+  BellOff,
+  AlertCircle,
 } from "lucide-react";
 
 import {
@@ -37,6 +42,15 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("profile");
+  const {
+    isSupported,
+    isSubscribed,
+    permission,
+    isLoading: notificationsLoading,
+    subscribe,
+    unsubscribe,
+    requestPermission
+  } = usePushNotifications();
 
   // Password change form schema
   const passwordSchema = z
@@ -441,7 +455,92 @@ export default function SettingsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-6">
+                    <div className="space-y-8">
+                      {/* Push notifications section */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <h3 className="font-medium text-lg">Push Notifications</h3>
+                          {isSupported ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50">
+                              Supported
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-red-50 text-red-700 hover:bg-red-50">
+                              Not Supported
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {!isSupported && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4 flex items-start gap-3">
+                            <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="font-medium text-amber-800">Browser not supported</p>
+                              <p className="text-sm text-amber-700 mt-1">
+                                Your browser doesn't support push notifications. Try using a modern browser like Chrome, Firefox, or Edge.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {isSupported && (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                {isSubscribed ? (
+                                  <BellRing className="h-5 w-5 text-primary" />
+                                ) : (
+                                  <BellOff className="h-5 w-5 text-muted-foreground" />
+                                )}
+                                <div>
+                                  <p className="font-medium">Enable Push Notifications</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Receive notifications even when the app is closed
+                                  </p>
+                                </div>
+                              </div>
+                              {
+                                notificationsLoading ? (
+                                  <div className="h-5 w-10 flex items-center justify-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                  </div>
+                                ) : (
+                                  <Switch 
+                                    checked={isSubscribed} 
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        if (permission === 'granted') {
+                                          subscribe();
+                                        } else {
+                                          requestPermission();
+                                        }
+                                      } else {
+                                        unsubscribe();
+                                      }
+                                    }}
+                                  />
+                                )
+                              }
+                            </div>
+                            
+                            {permission === 'denied' && (
+                              <div className="bg-red-50 border border-red-200 rounded-md p-4 flex items-start gap-3">
+                                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                                <div>
+                                  <p className="font-medium text-red-800">Permission denied</p>
+                                  <p className="text-sm text-red-700 mt-1">
+                                    You've blocked notifications from this site. Please update your browser settings to allow notifications.
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <Separator />
+                      
+                      {/* Email notifications section */}
                       <div>
                         <h3 className="font-medium text-lg mb-3">Email Notifications</h3>
                         <div className="space-y-3">
@@ -479,6 +578,7 @@ export default function SettingsPage() {
                       
                       <Separator />
                       
+                      {/* In-app notifications section */}
                       <div>
                         <h3 className="font-medium text-lg mb-3">In-App Notifications</h3>
                         <div className="space-y-3">

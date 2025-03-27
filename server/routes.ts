@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
+import { subscribeUser, unsubscribeUser, getVapidPublicKey } from "./push-notifications";
 import {
   insertGroupSchema,
   insertPrayerRequestSchema,
@@ -873,6 +874,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const { password, ...userWithoutPassword } = updatedUser;
     res.json(userWithoutPassword);
   });
+
+  // Push notification routes
+  app.get("/api/push/vapid-public-key", getVapidPublicKey);
+  app.post("/api/push/subscribe", isAuthenticated, subscribeUser);
+  app.post("/api/push/unsubscribe", isAuthenticated, unsubscribeUser);
 
   const httpServer = createServer(app);
   return httpServer;

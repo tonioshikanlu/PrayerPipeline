@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="72px" height="72px" viewBox="0 0 72 72" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Prayer Pipeline Badge</title>
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <circle fill="#4F46E5" cx="36" cy="36" r="36"></circle>
+        <path d="M36,20 C39.866,20 43,23.134 43,27 C43,30.866 39.866,34 36,34 C32.134,34 29,30.866 29,27 C29,23.134 32.134,20 36,20 Z M36,24 C34.343,24 33,25.343 33,27 C33,28.657 34.343,30 36,30 C37.657,30 39,28.657 39,27 C39,25.343 37.657,24 36,24 Z" fill="#FFFFFF"></path>
+        <path d="M36,38 C39.866,38 43,41.134 43,45 C43,48.866 39.866,52 36,52 C32.134,52 29,48.866 29,45 C29,41.134 32.134,38 36,38 Z M36,42 C34.343,42 33,43.343 33,45 C33,46.657 34.343,48 36,48 C37.657,48 39,46.657 39,45 C39,43.343 37.657,42 36,42 Z" fill="#FFFFFF"></path>
+    </g>
+</svg>

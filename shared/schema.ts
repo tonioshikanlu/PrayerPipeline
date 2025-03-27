@@ -77,6 +77,17 @@ export const prayingFor = pgTable("praying_for", {
   timestamp: timestamp("timestamp").defaultNow().notNull(),
 });
 
+// Push notification subscriptions
+export const subscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Zod schemas
 export const insertUserSchema = createInsertSchema(users)
   .pick({
@@ -133,9 +144,20 @@ export const insertPrayingForSchema = createInsertSchema(prayingFor).pick({
   userId: true,
 });
 
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).pick({
+  userId: true,
+  endpoint: true,
+  p256dh: true,
+  auth: true,
+  userAgent: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 
 export type Group = typeof groups.$inferSelect;
 export type InsertGroup = z.infer<typeof insertGroupSchema>;
