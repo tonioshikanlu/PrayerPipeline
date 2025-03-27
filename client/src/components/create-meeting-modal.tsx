@@ -91,12 +91,12 @@ export default function CreateMeetingModal({ groupId, open, onOpenChange }: Crea
       meetingType = "google_meet";
     }
     
-    // Create meeting data object
+    // Create meeting data object with proper Date objects
     const meetingData: CreateMeetingInput = {
       groupId,
       title: values.title,
-      description: values.description,
-      startTime: meetingDateTime,
+      description: values.description || "",
+      startTime: meetingDateTime, // Using Date object directly
       endTime: null, // Can be enhanced to add end time field
       meetingType,
       meetingLink: meetingPlatform === "physical" ? "In Person" : values.meetingLink,
@@ -105,8 +105,8 @@ export default function CreateMeetingModal({ groupId, open, onOpenChange }: Crea
     };
     
     // Add recurring meeting fields if applicable
-    if (values.isRecurring) {
-      meetingData.recurringPattern = values.recurringPattern as "daily" | "weekly" | "biweekly" | "monthly";
+    if (values.isRecurring && values.recurringPattern) {
+      meetingData.recurringPattern = values.recurringPattern;
       
       // Set the recurringDay based on the pattern
       if (values.recurringPattern === "monthly" && values.recurringDay !== null) {
@@ -122,7 +122,7 @@ export default function CreateMeetingModal({ groupId, open, onOpenChange }: Crea
         meetingData.recurringUntil = new Date(`${values.recurringUntil}T23:59:59`);
       }
     }
-
+    
     // Submit the form
     createMeeting(meetingData, {
       onSuccess: () => {
