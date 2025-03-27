@@ -1929,57 +1929,7 @@ export class DatabaseStorage implements IStorage {
   
   async getPrayerRequest(id: number): Promise<PrayerRequest | undefined> {
     try {
-      // Use raw SQL with explicit column selection to handle missing columns
-      const result = await db.execute(sql`
-        SELECT 
-          id, title, group_id, user_id, description, status, created_at, updated_at,
-          COALESCE(is_stale, false) as is_stale,
-          follow_up_date,
-          urgency,
-          is_anonymous
-        FROM prayer_requests
-        WHERE id = ${id}
-      `);
-      
-      if (result.rows.length === 0) {
-        return undefined;
-      }
-      
-      const row = result.rows[0];
-      
-      // Type assertions for the expected types
-      const prayerId = row.id as number;
-      const title = row.title as string;
-      const groupId = row.group_id as number;
-      const userId = row.user_id as number;
-      const description = row.description as string;
-      const status = row.status as "waiting" | "answered" | "declined";
-      const createdAt = new Date(row.created_at as string);
-      const updatedAt = new Date(row.updated_at as string);
-      const isStale = (row.is_stale as boolean) === true;
-      const followUpDate = row.follow_up_date ? new Date(row.follow_up_date as string) : null;
-      const urgency = (row.urgency as "low" | "medium" | "high") || "medium";
-      const isAnonymous = (row.is_anonymous as boolean) || false;
-      
-      return {
-        id: prayerId,
-        title,
-        groupId,
-        userId,
-        content: description, // Map description to content for backward compatibility
-        description,
-        status,
-        createdAt,
-        updatedAt,
-        isStale,
-        followUpDate,
-        urgency,
-        isAnonymous
-      } as PrayerRequest;
-    } catch (error) {
-      console.error("Error in getPrayerRequest:", error);
-      
-      // Fall back to standard Drizzle query if raw SQL fails
+      // Use standard Drizzle query to avoid missing column errors
       const result = await db.select()
         .from(prayerRequests)
         .where(eq(prayerRequests.id, id));
@@ -1992,66 +1942,19 @@ export class DatabaseStorage implements IStorage {
       const request = result[0];
       return {
         ...request,
-        isStale: request.isStale ?? false,
-        followUpDate: request.followUpDate ?? null,
-        urgency: request.urgency ?? "medium",
-        isAnonymous: request.isAnonymous ?? false,
+        isStale: false, // Default value since column doesn't exist in DB
+        followUpDate: null, // Default value since column doesn't exist in DB
         content: request.description // Ensure content is set for backward compatibility
       } as PrayerRequest;
+    } catch (error) {
+      console.error("Error in getPrayerRequest:", error);
+      return undefined;
     }
   }
   
   async getGroupPrayerRequests(groupId: number): Promise<PrayerRequest[]> {
     try {
-      // Use raw SQL with a fallback for missing columns
-      const result = await db.execute(sql`
-        SELECT 
-          id, title, group_id, user_id, description, status, created_at, updated_at,
-          COALESCE(is_stale, false) as is_stale,
-          follow_up_date,
-          urgency,
-          is_anonymous
-        FROM prayer_requests
-        WHERE group_id = ${groupId}
-        ORDER BY created_at DESC
-      `);
-      
-      // Transform the raw results to match the PrayerRequest type
-      return result.rows.map(row => {
-        // Type assertions for the expected types
-        const id = row.id as number;
-        const title = row.title as string;
-        const groupId = row.group_id as number;
-        const userId = row.user_id as number;
-        const description = row.description as string;
-        const status = row.status as "waiting" | "answered" | "declined";
-        const createdAt = new Date(row.created_at as string);
-        const updatedAt = new Date(row.updated_at as string);
-        const isStale = (row.is_stale as boolean) === true;
-        const followUpDate = row.follow_up_date ? new Date(row.follow_up_date as string) : null;
-        const urgency = (row.urgency as "low" | "medium" | "high") || "medium";
-        const isAnonymous = (row.is_anonymous as boolean) || false;
-        
-        return {
-          id,
-          title,
-          groupId,
-          userId,
-          content: description, // Map description to content for backward compatibility
-          description,
-          status,
-          createdAt,
-          updatedAt,
-          isStale,
-          followUpDate,
-          urgency,
-          isAnonymous
-        } as PrayerRequest;
-      });
-    } catch (error) {
-      console.error("Error in getGroupPrayerRequests:", error);
-      
-      // If the query fails due to missing columns, fall back to a simpler query
+      // Use standard Drizzle query to avoid missing column errors
       const requests = await db.select()
         .from(prayerRequests)
         .where(eq(prayerRequests.groupId, groupId))
@@ -2060,64 +1963,19 @@ export class DatabaseStorage implements IStorage {
       // Add missing properties with default values
       return requests.map(request => ({
         ...request,
-        isStale: request.isStale ?? false,
-        followUpDate: request.followUpDate ?? null,
+        isStale: false, // Default value since column doesn't exist in DB
+        followUpDate: null, // Default value since column doesn't exist in DB
         content: request.description // Ensure content is set for backward compatibility
       }));
+    } catch (error) {
+      console.error("Error in getGroupPrayerRequests:", error);
+      return [];
     }
   }
   
   async getUserPrayerRequests(userId: number): Promise<PrayerRequest[]> {
     try {
-      // Use raw SQL with a fallback for missing columns
-      const result = await db.execute(sql`
-        SELECT 
-          id, title, group_id, user_id, description, status, created_at, updated_at,
-          COALESCE(is_stale, false) as is_stale,
-          follow_up_date,
-          urgency,
-          is_anonymous
-        FROM prayer_requests
-        WHERE user_id = ${userId}
-        ORDER BY created_at DESC
-      `);
-      
-      // Transform the raw results to match the PrayerRequest type
-      return result.rows.map(row => {
-        // Type assertions for the expected types
-        const id = row.id as number;
-        const title = row.title as string;
-        const groupId = row.group_id as number;
-        const userId = row.user_id as number;
-        const description = row.description as string;
-        const status = row.status as "waiting" | "answered" | "declined";
-        const createdAt = new Date(row.created_at as string);
-        const updatedAt = new Date(row.updated_at as string);
-        const isStale = (row.is_stale as boolean) === true;
-        const followUpDate = row.follow_up_date ? new Date(row.follow_up_date as string) : null;
-        const urgency = (row.urgency as "low" | "medium" | "high") || "medium";
-        const isAnonymous = (row.is_anonymous as boolean) || false;
-        
-        return {
-          id,
-          title,
-          groupId,
-          userId,
-          content: description, // Map description to content for backward compatibility
-          description,
-          status,
-          createdAt,
-          updatedAt,
-          isStale,
-          followUpDate,
-          urgency,
-          isAnonymous
-        } as PrayerRequest;
-      });
-    } catch (error) {
-      console.error("Error in getUserPrayerRequests:", error);
-      
-      // If the query fails due to missing columns, fall back to a simpler query
+      // Use standard Drizzle query to avoid missing column errors
       const requests = await db.select()
         .from(prayerRequests)
         .where(eq(prayerRequests.userId, userId))
@@ -2126,10 +1984,13 @@ export class DatabaseStorage implements IStorage {
       // Add missing properties with default values
       return requests.map(request => ({
         ...request,
-        isStale: request.isStale ?? false,
-        followUpDate: request.followUpDate ?? null,
+        isStale: false, // Default value since column doesn't exist in DB
+        followUpDate: null, // Default value since column doesn't exist in DB
         content: request.description // Ensure content is set for backward compatibility
       }));
+    } catch (error) {
+      console.error("Error in getUserPrayerRequests:", error);
+      return [];
     }
   }
   
@@ -2143,51 +2004,21 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
       
-      // Get prayer requests from those groups with explicit columns
-      const result = await db.execute(
-        sql`SELECT 
-          id, title, group_id, user_id, description, status, created_at, updated_at,
-          COALESCE(is_stale, false) as is_stale,
-          follow_up_date,
-          urgency,
-          is_anonymous
-        FROM prayer_requests 
-        WHERE group_id IN (${sql.join(groupIds)}) 
-        ORDER BY created_at DESC LIMIT ${limit}`
-      );
+      // Get prayer requests from those groups using standard querying
+      // to avoid missing column errors
+      const result = await db.select()
+        .from(prayerRequests)
+        .where(inArray(prayerRequests.groupId, groupIds))
+        .orderBy(desc(prayerRequests.createdAt))
+        .limit(limit);
       
-      // Transform the raw results to match the PrayerRequest type
-      return result.rows.map(row => {
-        // Type assertions for the expected types
-        const id = row.id as number;
-        const title = row.title as string;
-        const groupId = row.group_id as number;
-        const userId = row.user_id as number;
-        const description = row.description as string;
-        const status = row.status as "waiting" | "answered" | "declined";
-        const createdAt = new Date(row.created_at as string);
-        const updatedAt = new Date(row.updated_at as string);
-        const isStale = (row.is_stale as boolean) === true;
-        const followUpDate = row.follow_up_date ? new Date(row.follow_up_date as string) : null;
-        const urgency = (row.urgency as "low" | "medium" | "high") || "medium";
-        const isAnonymous = (row.is_anonymous as boolean) || false;
-        
-        return {
-          id,
-          title,
-          groupId,
-          userId,
-          content: description, // Map description to content for backward compatibility
-          description,
-          status,
-          createdAt,
-          updatedAt,
-          isStale,
-          followUpDate,
-          urgency,
-          isAnonymous
-        } as PrayerRequest;
-      });
+      // Add default/missing properties
+      return result.map(request => ({
+        ...request,
+        isStale: false, // Default value since column doesn't exist in DB
+        followUpDate: null, // Default value since column doesn't exist in DB
+        content: request.description // Ensure content is set for backward compatibility
+      }));
     } catch (error) {
       console.error('Error in getRecentPrayerRequests:', error);
       return [];
@@ -2548,18 +2379,18 @@ export class DatabaseStorage implements IStorage {
 
   // Stale prayer request management
   async checkAndUpdateStalePrayerRequests(): Promise<number> {
+    // Since we don't have is_stale or follow_up_date columns in the database,
+    // we'll just check for prayers that haven't been updated in a while
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000); // Two weeks ago
     
-    // Find prayer requests with a follow-up date in the past that haven't been marked as stale
+    // Find prayer requests that have been waiting for over two weeks
     const staleRequests = await db.select()
       .from(prayerRequests)
       .where(
         and(
-          eq(prayerRequests.isStale, false),
           eq(prayerRequests.status, "waiting"),
-          sql`${prayerRequests.followUpDate} IS NOT NULL`,
-          sql`${prayerRequests.followUpDate} < ${today}`
+          sql`${prayerRequests.updatedAt} < ${twoWeeksAgo}`
         )
       );
     
@@ -2567,17 +2398,14 @@ export class DatabaseStorage implements IStorage {
       return 0;
     }
     
-    // Mark requests as stale
+    // We can't mark them as stale since the column doesn't exist,
+    // but we can notify the owners
     for (const request of staleRequests) {
-      await db.update(prayerRequests)
-        .set({ isStale: true })
-        .where(eq(prayerRequests.id, request.id));
-      
       // Create notification for the prayer request owner
       await this.createNotification({
         userId: request.userId,
         type: "status_update",
-        message: `Your prayer request "${request.title}" is now stale. Please update its status.`,
+        message: `Your prayer request "${request.title}" hasn't been updated in two weeks. Please update its status.`,
         referenceId: request.id,
       });
     }
