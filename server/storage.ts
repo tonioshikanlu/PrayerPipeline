@@ -5,13 +5,15 @@ import {
   prayerRequests, type PrayerRequest, type InsertPrayerRequest,
   comments, type Comment, type InsertComment,
   notifications, type Notification, type InsertNotification,
-  prayingFor, type PrayingFor, type InsertPrayingFor
+  prayingFor, type PrayingFor, type InsertPrayingFor,
+  passwordResetTokens, type PasswordResetToken, type InsertPasswordResetToken
 } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { db } from "./db";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPg from "connect-pg-simple";
+import crypto from "crypto";
 
 const MemoryStore = createMemoryStore(session);
 const PostgresSessionStore = connectPg(session);
@@ -69,6 +71,12 @@ export interface IStorage {
   isPrayingFor(prayerRequestId: number, userId: number): Promise<boolean>;
   getPrayingForCount(prayerRequestId: number): Promise<number>;
   
+  // Password Reset
+  createPasswordResetToken(userId: number): Promise<PasswordResetToken>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(id: number): Promise<PasswordResetToken | undefined>;
+  
   // Session store
   sessionStore: any;
 }
@@ -81,6 +89,7 @@ export class MemStorage implements IStorage {
   private commentsMap: Map<number, Comment>;
   private notificationsMap: Map<number, Notification>;
   private prayingForMap: Map<number, PrayingFor>;
+  private passwordResetTokensMap: Map<number, PasswordResetToken>;
   
   private userIdCounter: number;
   private groupIdCounter: number;
@@ -89,6 +98,7 @@ export class MemStorage implements IStorage {
   private commentIdCounter: number;
   private notificationIdCounter: number;
   private prayingForIdCounter: number;
+  private passwordResetTokenIdCounter: number;
   
   sessionStore: any;
 
@@ -100,6 +110,7 @@ export class MemStorage implements IStorage {
     this.commentsMap = new Map();
     this.notificationsMap = new Map();
     this.prayingForMap = new Map();
+    this.passwordResetTokensMap = new Map();
     
     this.userIdCounter = 1;
     this.groupIdCounter = 1;
@@ -108,6 +119,7 @@ export class MemStorage implements IStorage {
     this.commentIdCounter = 1;
     this.notificationIdCounter = 1;
     this.prayingForIdCounter = 1;
+    this.passwordResetTokenIdCounter = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000, // 24 hours
@@ -596,6 +608,49 @@ export class MemStorage implements IStorage {
     return Array.from(this.prayingForMap.values())
       .filter(p => p.prayerRequestId === prayerRequestId)
       .length;
+  }
+  
+  // Password Reset methods
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.usersMap.values()).find(
+      (user) => user.email === email,
+    );
+  }
+  
+  async createPasswordResetToken(userId: number): Promise<PasswordResetToken> {
+    const id = this.passwordResetTokenIdCounter++;
+    const now = new Date();
+    // Generate a random token
+    const buffer = crypto.randomBytes(32);
+    const token = buffer.toString('hex');
+    const expiresAt = new Date(now.getTime() + 1000 * 60 * 60); // 1 hour from now
+    
+    const resetToken: PasswordResetToken = {
+      id,
+      userId,
+      token,
+      expiresAt,
+      isUsed: false,
+      createdAt: now
+    };
+    
+    this.passwordResetTokensMap.set(id, resetToken);
+    return resetToken;
+  }
+  
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    return Array.from(this.passwordResetTokensMap.values()).find(
+      (resetToken) => resetToken.token === token && !resetToken.isUsed && resetToken.expiresAt > new Date()
+    );
+  }
+  
+  async markPasswordResetTokenUsed(id: number): Promise<PasswordResetToken | undefined> {
+    const token = this.passwordResetTokensMap.get(id);
+    if (!token) return undefined;
+    
+    const updatedToken = { ...token, isUsed: true };
+    this.passwordResetTokensMap.set(id, updatedToken);
+    return updatedToken;
   }
 }
 
@@ -1174,6 +1229,60 @@ export class DatabaseStorage implements IStorage {
       .where(eq(prayingFor.prayerRequestId, prayerRequestId));
     
     return result[0]?.count || 0;
+  }
+  
+  // Password Reset methods
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.select()
+      .from(users)
+      .where(eq(users.email, email));
+    
+    return result[0];
+  }
+  
+  async createPasswordResetToken(userId: number): Promise<PasswordResetToken> {
+    const now = new Date();
+    // Generate a random token
+    const buffer = crypto.randomBytes(32);
+    const token = buffer.toString('hex');
+    const expiresAt = new Date(now.getTime() + 1000 * 60 * 60); // 1 hour from now
+    
+    const tokenToInsert: InsertPasswordResetToken = {
+      userId,
+      token,
+      expiresAt
+    };
+    
+    const result = await db.insert(passwordResetTokens)
+      .values(tokenToInsert)
+      .returning();
+    
+    return result[0];
+  }
+  
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const now = new Date();
+    
+    const result = await db.select()
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.token, token),
+          eq(passwordResetTokens.isUsed, false),
+          sql`${passwordResetTokens.expiresAt} > ${now}`
+        )
+      );
+    
+    return result[0];
+  }
+  
+  async markPasswordResetTokenUsed(id: number): Promise<PasswordResetToken | undefined> {
+    const result = await db.update(passwordResetTokens)
+      .set({ isUsed: true })
+      .where(eq(passwordResetTokens.id, id))
+      .returning();
+    
+    return result[0];
   }
 }
 

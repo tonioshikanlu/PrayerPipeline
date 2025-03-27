@@ -8,6 +8,8 @@ import {
   insertPrayerRequestSchema,
   insertCommentSchema,
   insertGroupMemberSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -889,6 +891,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/push/vapid-public-key", getVapidPublicKey);
   app.post("/api/push/subscribe", isAuthenticated, subscribeUser);
   app.post("/api/push/unsubscribe", isAuthenticated, unsubscribeUser);
+
+  // Password reset routes
+  app.post("/api/forgot-password", async (req, res, next) => {
+    try {
+      const { email } = forgotPasswordSchema.parse(req.body);
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
+      let resetToken = null;
+      
+      if (user) {
+        // Create password reset token
+        resetToken = await storage.createPasswordResetToken(user.id);
+        console.log(`Password reset token for ${user.email}: ${resetToken.token}`);
+      }
+      
+      // In a real-world application, send an email with the reset link
+      // For now, we'll just return the token in the response for testing
+      // This would normally be sent via email with a link like:
+      // https://yourapp.com/reset-password?token=resetToken.token
+      
+      // Return success regardless if user found or not for security reasons
+      // During development, include the token in the response for testing
+      res.status(200).json({ 
+        message: "If your email is registered, you will receive a password reset link shortly",
+        // Remove this in production! This is just for testing
+        debug: {
+          email,
+          userFound: !!user,
+          token: resetToken ? resetToken.token : null
+        }
+      });
+      
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.post("/api/reset-password", async (req, res, next) => {
+    try {
+      const { token, password } = resetPasswordSchema.parse(req.body);
+      
+      // Find valid token
+      const resetToken = await storage.getPasswordResetToken(token);
+      if (!resetToken) {
+        return res.status(400).json({ 
+          message: "Invalid or expired reset token" 
+        });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await hashPassword(password);
+      
+      // Update user password
+      await storage.updateUser(resetToken.userId, { password: hashedPassword });
+      
+      // Mark token as used
+      await storage.markPasswordResetTokenUsed(resetToken.id);
+      
+      res.status(200).json({ 
+        message: "Password has been reset successfully" 
+      });
+      
+    } catch (error) {
+      next(error);
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;
