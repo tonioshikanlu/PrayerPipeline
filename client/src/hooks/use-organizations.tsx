@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useState } from "react";
+import { createContext, ReactNode, useContext, useState, useEffect } from "react";
 import {
   useQuery,
   useMutation,
@@ -47,9 +47,11 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const currentOrganization = organizations.find(org => org.id === currentOrganizationId) || organizations[0] || null;
   
   // Whenever organizations data changes, update current org if needed
-  if (organizations.length > 0 && !currentOrganizationId && !isLoading) {
-    setCurrentOrganizationId(organizations[0].id);
-  }
+  useEffect(() => {
+    if (organizations.length > 0 && !currentOrganizationId && !isLoading) {
+      setCurrentOrganizationId(organizations[0].id);
+    }
+  }, [organizations, currentOrganizationId, isLoading]);
 
   // Load organization members for current organization
   const {

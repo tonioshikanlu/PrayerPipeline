@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useOrganizations } from "@/hooks/use-organizations";
 import Header from "@/components/header";
 import PrayerCard from "@/components/prayer-card";
 import GroupCard from "@/components/group-card";
@@ -11,34 +12,37 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { PlusIcon } from "lucide-react";
+import { Group, PrayerRequest, Notification } from "@shared/schema";
 
 export default function HomePage() {
   const { user } = useAuth();
+  const { currentOrganization } = useOrganizations();
   const [_, navigate] = useLocation();
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [createRequestOpen, setCreateRequestOpen] = useState(false);
 
   // Fetch recent prayer requests
   const {
-    data: recentRequests,
+    data: recentRequests = [],
     isLoading: isLoadingRequests,
-  } = useQuery({
+  } = useQuery<PrayerRequest[]>({
     queryKey: ["/api/requests/user/recent"],
   });
 
-  // Fetch user groups
+  // Fetch organization groups
   const {
-    data: userGroups,
+    data: userGroups = [],
     isLoading: isLoadingGroups,
-  } = useQuery({
-    queryKey: ["/api/groups/user"],
+  } = useQuery<Group[]>({
+    queryKey: ["/api/groups/user", currentOrganization?.id],
+    enabled: !!currentOrganization,
   });
 
   // Fetch user stats (would be better to have a dedicated endpoint for this)
   const {
-    data: notifications,
+    data: notifications = [],
     isLoading: isLoadingNotifications
-  } = useQuery({
+  } = useQuery<Notification[]>({
     queryKey: ["/api/notifications"],
   });
 

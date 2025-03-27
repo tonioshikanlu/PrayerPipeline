@@ -14,21 +14,29 @@ import ForgotPasswordPage from "@/pages/forgot-password-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import OrganizationsPage from "@/pages/organizations-page";
 import OrganizationDetailsPage from "@/pages/organization-details-page";
+import OrganizationOnboarding from "@/pages/organization-onboarding";
 import { ProtectedRoute } from "./lib/protected-route";
+import { OrganizationProtectedRoute } from "./lib/organization-protected-route";
 import { AuthProvider } from "./hooks/use-auth";
 import { OrganizationProvider } from "./hooks/use-organizations";
 
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={HomePage} />
-      <ProtectedRoute path="/groups/:groupId" component={GroupDetails} />
-      <ProtectedRoute path="/requests/:requestId" component={RequestDetails} />
-      <ProtectedRoute path="/profile" component={ProfilePage} />
-      <ProtectedRoute path="/settings" component={SettingsPage} />
-      <ProtectedRoute path="/explore" component={ExploreGroupsPage} />
-      <ProtectedRoute path="/organizations" component={OrganizationsPage} />
-      <ProtectedRoute path="/organizations/:organizationId" component={OrganizationDetailsPage} />
+      {/* Routes that require both auth and organization */}
+      <OrganizationProtectedRoute path="/" component={HomePage} />
+      <OrganizationProtectedRoute path="/groups/:groupId" component={GroupDetails} />
+      <OrganizationProtectedRoute path="/requests/:requestId" component={RequestDetails} />
+      <OrganizationProtectedRoute path="/profile" component={ProfilePage} />
+      <OrganizationProtectedRoute path="/settings" component={SettingsPage} />
+      <OrganizationProtectedRoute path="/explore" component={ExploreGroupsPage} />
+      <OrganizationProtectedRoute path="/organizations" component={OrganizationsPage} />
+      <OrganizationProtectedRoute path="/organizations/:organizationId" component={OrganizationDetailsPage} />
+      
+      {/* Routes that require just auth */}
+      <ProtectedRoute path="/onboarding" component={OrganizationOnboarding} />
+      
+      {/* Public routes */}
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />

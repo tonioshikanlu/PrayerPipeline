@@ -1022,6 +1022,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Organization Members
+  app.get("/api/organizations/members", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const currentOrgId = parseInt(req.query.organizationId as string);
+    
+    if (!currentOrgId || isNaN(currentOrgId)) {
+      return res.status(400).json({ message: "Invalid organization ID" });
+    }
+    
+    // Check if user is a member of this organization
+    const membership = await storage.getOrganizationMember(currentOrgId, req.user.id);
+    if (!membership) {
+      return res.status(403).json({ message: "You are not a member of this organization" });
+    }
+    
+    const members = await storage.getOrganizationMembers(currentOrgId);
+    
+    // Fetch user details for each member
+    const memberDetails = await Promise.all(
+      members.map(async (member) => {
+        const user = await storage.getUser(member.userId);
+        if (!user) return null;
+        
+        const { password, ...userWithoutPassword } = user;
+        return {
+          ...member,
+          user: userWithoutPassword
+        };
+      })
+    );
+    
+    res.json(memberDetails.filter(m => m !== null));
+  });
+  
   app.get("/api/organizations/:organizationId/members", isOrganizationMember, async (req, res) => {
     const organizationId = parseInt(req.params.organizationId);
     const members = await storage.getOrganizationMembers(organizationId);
@@ -1199,6 +1232,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Organization Groups
+  app.get("/api/organizations/groups", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const currentOrgId = parseInt(req.query.organizationId as string);
+    
+    if (!currentOrgId || isNaN(currentOrgId)) {
+      return res.status(400).json({ message: "Invalid organization ID" });
+    }
+    
+    // Check if user is a member of this organization
+    const membership = await storage.getOrganizationMember(currentOrgId, req.user.id);
+    if (!membership) {
+      return res.status(403).json({ message: "You are not a member of this organization" });
+    }
+    
+    const groups = await storage.getGroupsByOrganization(currentOrgId);
+    res.json(groups);
+  });
+  
   app.get("/api/organizations/:organizationId/groups", isOrganizationMember, async (req, res) => {
     const organizationId = parseInt(req.params.organizationId);
     const groups = await storage.getGroupsByOrganization(organizationId);
