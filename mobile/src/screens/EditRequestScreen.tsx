@@ -71,7 +71,13 @@ export default function EditRequestScreen() {
       status: string;
       isPublic: boolean;
     }) => {
-      const res = await apiRequest('PUT', `/api/requests/${requestId}`, data);
+      const res = await apiRequest('PUT', `/api/requests/${requestId}`, {
+        title: data.title,
+        description: data.content, // Map content to description for server
+        urgency: data.urgency,
+        status: data.status,
+        isAnonymous: !data.isPublic, // Map isPublic to isAnonymous for server
+      });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to update prayer request' }));
         throw new Error(error.message || 'Failed to update prayer request');
