@@ -2273,6 +2273,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       // Use a more primitive query approach to avoid column-related issues
+      // Strictly limit to the 5 most recent requests
       const { rows } = await pool.query(
         `SELECT 
           id, group_id as "groupId", user_id as "userId", title, description, 
@@ -2282,7 +2283,7 @@ export class DatabaseStorage implements IStorage {
         WHERE group_id = ANY($1)
         ORDER BY created_at DESC
         LIMIT $2`,
-        [groupIds, limit]
+        [groupIds, Math.min(limit, 5)] // Ensure we never return more than 5 requests
       );
       
       // Add default/missing properties

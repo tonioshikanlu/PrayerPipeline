@@ -127,8 +127,8 @@ export default function HomePage() {
                   </>
                 ) : recentRequests?.length > 0 ? (
                   <>
-                    {/* Show only the 5 most recent prayer requests */}
-                    {recentRequests.slice(0, 5).map((request) => (
+                    {/* Display all recent prayer requests (already limited to 5 on the server) */}
+                    {recentRequests.map((request) => (
                       <PrayerCard 
                         key={request.id} 
                         request={request} 
