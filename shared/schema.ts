@@ -398,8 +398,15 @@ export const meetings = pgTable("meetings", {
   meetingLink: text("meeting_link").notNull(),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
+  isRecurring: boolean("is_recurring").default(false).notNull(),
+  recurringPattern: text("recurring_pattern", { 
+    enum: ["daily", "weekly", "biweekly", "monthly"] 
+  }),
+  recurringDay: integer("recurring_day"), // 0-6 for weekly (0 = Sunday), 1-31 for monthly
+  recurringUntil: timestamp("recurring_until"), // When the recurring series ends, null for indefinite
   createdBy: integer("created_by").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  parentMeetingId: integer("parent_meeting_id"), // For recurring instances, points to the original meeting
 });
 
 // Meeting notes table
@@ -421,7 +428,12 @@ export const insertMeetingSchema = createInsertSchema(meetings).pick({
   meetingLink: true,
   startTime: true,
   endTime: true,
+  isRecurring: true,
+  recurringPattern: true,
+  recurringDay: true,
+  recurringUntil: true,
   createdBy: true,
+  parentMeetingId: true,
 });
 
 export const insertMeetingNotesSchema = createInsertSchema(meetingNotes).pick({

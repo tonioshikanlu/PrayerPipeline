@@ -4,8 +4,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
-// Type for creating a new meeting
-export type CreateMeetingInput = z.infer<typeof insertMeetingSchema>;
+// Type for creating a new meeting - with additional frontend-only fields
+export type CreateMeetingInput = z.infer<typeof insertMeetingSchema> & {
+  // Optional overrides for form processing
+  recurringDay?: number | null;
+  recurringUntil?: Date | null;
+};
 
 // Type for updating a meeting
 export type UpdateMeetingInput = Partial<CreateMeetingInput>;

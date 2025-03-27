@@ -1088,12 +1088,117 @@ export class MemStorage implements IStorage {
       meetingLink: meeting.meetingLink,
       startTime: meeting.startTime,
       endTime: meeting.endTime || null,
+      isRecurring: meeting.isRecurring || false,
+      recurringPattern: meeting.recurringPattern || null,
+      recurringDay: meeting.recurringDay || null,
+      recurringUntil: meeting.recurringUntil || null,
+      parentMeetingId: meeting.parentMeetingId || null,
       createdBy: meeting.createdBy,
       createdAt: now
     };
     
     this.meetingsMap.set(id, newMeeting);
+    
+    // If this is a recurring meeting, create recurring instances
+    if (newMeeting.isRecurring && newMeeting.recurringPattern) {
+      await this.generateRecurringMeetings(newMeeting);
+    }
+    
     return newMeeting;
+  }
+  
+  // Helper method to generate recurring meeting instances
+  async generateRecurringMeetings(parentMeeting: Meeting): Promise<Meeting[]> {
+    if (!parentMeeting.isRecurring || !parentMeeting.recurringPattern) {
+      return [];
+    }
+    
+    const recurringMeetings: Meeting[] = [];
+    const startDate = new Date(parentMeeting.startTime);
+    const endDate = parentMeeting.recurringUntil || new Date(startDate.getTime() + (90 * 24 * 60 * 60 * 1000)); // Default to 90 days if no end date
+    
+    let currentDate = new Date(startDate);
+    // Move to the next instance after the first one
+    this.advanceToNextRecurringDate(currentDate, parentMeeting.recurringPattern, parentMeeting.recurringDay);
+    
+    // Generate up to 50 instances maximum
+    let instanceCount = 0;
+    const maxInstances = 50;
+    
+    while (currentDate <= endDate && instanceCount < maxInstances) {
+      const meetingDuration = parentMeeting.endTime 
+        ? new Date(parentMeeting.endTime).getTime() - new Date(parentMeeting.startTime).getTime() 
+        : 60 * 60 * 1000; // Default 1 hour
+      
+      const endTime = parentMeeting.endTime 
+        ? new Date(currentDate.getTime() + meetingDuration)
+        : null;
+      
+      const meetingInstance: InsertMeeting = {
+        groupId: parentMeeting.groupId,
+        title: parentMeeting.title,
+        description: parentMeeting.description,
+        meetingType: parentMeeting.meetingType,
+        meetingLink: parentMeeting.meetingLink,
+        startTime: new Date(currentDate),
+        endTime: endTime,
+        isRecurring: false, // Instances are not themselves recurring
+        createdBy: parentMeeting.createdBy,
+        parentMeetingId: parentMeeting.id
+      };
+      
+      const newInstance = await this.createMeeting(meetingInstance);
+      recurringMeetings.push(newInstance);
+      
+      // Move to next instance
+      this.advanceToNextRecurringDate(currentDate, parentMeeting.recurringPattern, parentMeeting.recurringDay);
+      instanceCount++;
+    }
+    
+    return recurringMeetings;
+  }
+  
+  // Helper to calculate the next date based on recurrence pattern
+  private advanceToNextRecurringDate(date: Date, pattern: string, recurringDay: number | null): void {
+    switch (pattern) {
+      case 'daily':
+        date.setDate(date.getDate() + 1);
+        break;
+      case 'weekly':
+        date.setDate(date.getDate() + 7);
+        break;
+      case 'biweekly':
+        date.setDate(date.getDate() + 14);
+        break;
+      case 'monthly':
+        // If recurringDay is set (1-31), use that day of the month
+        if (recurringDay !== null && recurringDay >= 1 && recurringDay <= 31) {
+          const currentMonth = date.getMonth();
+          date.setMonth(currentMonth + 1);
+          
+          // Try to set the specific day, but account for months with fewer days
+          const newMonth = date.getMonth();
+          date.setDate(recurringDay);
+          
+          // If the month changed again, it means we went too far (e.g., trying to set Feb 31)
+          // So go back to the last day of the intended month
+          if (date.getMonth() !== newMonth) {
+            date.setMonth(newMonth + 1, 0); // Last day of the intended month
+          }
+        } else {
+          // Just add a month without changing the day
+          const currentDate = date.getDate();
+          date.setMonth(date.getMonth() + 1);
+          
+          // Adjust for months with fewer days
+          if (date.getDate() !== currentDate) {
+            date.setDate(0); // Last day of the previous month
+          }
+        }
+        break;
+      default:
+        date.setDate(date.getDate() + 7); // Default to weekly
+    }
   }
   
   async getMeeting(id: number): Promise<Meeting | undefined> {
@@ -1275,7 +1380,111 @@ export class DatabaseStorage implements IStorage {
     const [newMeeting] = await db.insert(meetings)
       .values(meeting)
       .returning();
+      
+    // If this is a recurring meeting, create recurring instances
+    if (newMeeting.isRecurring && newMeeting.recurringPattern) {
+      await this.generateRecurringMeetings(newMeeting);
+    }
+      
     return newMeeting;
+  }
+  
+  // Helper method to generate recurring meeting instances
+  async generateRecurringMeetings(parentMeeting: Meeting): Promise<Meeting[]> {
+    if (!parentMeeting.isRecurring || !parentMeeting.recurringPattern) {
+      return [];
+    }
+    
+    const recurringMeetings: Meeting[] = [];
+    const startDate = new Date(parentMeeting.startTime);
+    const endDate = parentMeeting.recurringUntil || new Date(startDate.getTime() + (90 * 24 * 60 * 60 * 1000)); // Default to 90 days if no end date
+    
+    let currentDate = new Date(startDate);
+    // Move to the next instance after the first one
+    this.advanceToNextRecurringDate(currentDate, parentMeeting.recurringPattern, parentMeeting.recurringDay);
+    
+    // Generate up to 50 instances maximum
+    let instanceCount = 0;
+    const maxInstances = 50;
+    
+    while (currentDate <= endDate && instanceCount < maxInstances) {
+      const meetingDuration = parentMeeting.endTime 
+        ? new Date(parentMeeting.endTime).getTime() - new Date(parentMeeting.startTime).getTime() 
+        : 60 * 60 * 1000; // Default 1 hour
+      
+      const endTime = parentMeeting.endTime 
+        ? new Date(currentDate.getTime() + meetingDuration)
+        : null;
+      
+      const meetingInstance: InsertMeeting = {
+        groupId: parentMeeting.groupId,
+        title: parentMeeting.title,
+        description: parentMeeting.description,
+        meetingType: parentMeeting.meetingType,
+        meetingLink: parentMeeting.meetingLink,
+        startTime: new Date(currentDate),
+        endTime: endTime,
+        isRecurring: false, // Instances are not themselves recurring
+        createdBy: parentMeeting.createdBy,
+        parentMeetingId: parentMeeting.id
+      };
+      
+      // Insert directly to avoid recursion
+      const [newInstance] = await db.insert(meetings)
+        .values(meetingInstance)
+        .returning();
+        
+      recurringMeetings.push(newInstance);
+      
+      // Move to next instance
+      this.advanceToNextRecurringDate(currentDate, parentMeeting.recurringPattern, parentMeeting.recurringDay);
+      instanceCount++;
+    }
+    
+    return recurringMeetings;
+  }
+  
+  // Helper to calculate the next date based on recurrence pattern
+  private advanceToNextRecurringDate(date: Date, pattern: string, recurringDay: number | null): void {
+    switch (pattern) {
+      case 'daily':
+        date.setDate(date.getDate() + 1);
+        break;
+      case 'weekly':
+        date.setDate(date.getDate() + 7);
+        break;
+      case 'biweekly':
+        date.setDate(date.getDate() + 14);
+        break;
+      case 'monthly':
+        // If recurringDay is set (1-31), use that day of the month
+        if (recurringDay !== null && recurringDay >= 1 && recurringDay <= 31) {
+          const currentMonth = date.getMonth();
+          date.setMonth(currentMonth + 1);
+          
+          // Try to set the specific day, but account for months with fewer days
+          const newMonth = date.getMonth();
+          date.setDate(recurringDay);
+          
+          // If the month changed again, it means we went too far (e.g., trying to set Feb 31)
+          // So go back to the last day of the intended month
+          if (date.getMonth() !== newMonth) {
+            date.setMonth(newMonth + 1, 0); // Last day of the intended month
+          }
+        } else {
+          // Just add a month without changing the day
+          const currentDate = date.getDate();
+          date.setMonth(date.getMonth() + 1);
+          
+          // Adjust for months with fewer days
+          if (date.getDate() !== currentDate) {
+            date.setDate(0); // Last day of the previous month
+          }
+        }
+        break;
+      default:
+        date.setDate(date.getDate() + 7); // Default to weekly
+    }
   }
   
   async getMeeting(id: number): Promise<Meeting | undefined> {
