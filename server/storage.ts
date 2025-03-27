@@ -17,7 +17,7 @@ import {
   meetingNotes, type MeetingNote, type InsertMeetingNote
 } from "@shared/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
-import { db } from "./db";
+import { db, pool } from "./db";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPg from "connect-pg-simple";
@@ -2213,16 +2213,21 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
       
-      // Get prayer requests from those groups using standard querying
-      // to avoid missing column errors
-      const result = await db.select()
-        .from(prayerRequests)
-        .where(inArray(prayerRequests.groupId, groupIds))
-        .orderBy(desc(prayerRequests.createdAt))
-        .limit(limit);
+      // Use a more primitive query approach to avoid column-related issues
+      const { rows } = await pool.query(
+        `SELECT 
+          id, group_id as "groupId", user_id as "userId", title, description, 
+          urgency, is_anonymous as "isAnonymous", status, 
+          created_at as "createdAt", updated_at as "updatedAt"
+        FROM prayer_requests
+        WHERE group_id = ANY($1)
+        ORDER BY created_at DESC
+        LIMIT $2`,
+        [groupIds, limit]
+      );
       
       // Add default/missing properties
-      return result.map(request => ({
+      return rows.map((request: any) => ({
         ...request,
         isStale: false, // Default value since column doesn't exist in DB
         followUpDate: null, // Default value since column doesn't exist in DB

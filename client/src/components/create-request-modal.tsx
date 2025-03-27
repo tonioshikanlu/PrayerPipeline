@@ -113,7 +113,14 @@ export default function CreateRequestModal({
   });
 
   const onSubmit = (data: CreateRequestInput) => {
-    createRequestMutation.mutate(data);
+    // Handle date conversion for followUpDate
+    const formattedData = {
+      ...data,
+      // Convert string date to Date object if it exists
+      followUpDate: data.followUpDate ? new Date(data.followUpDate) : undefined
+    };
+    
+    createRequestMutation.mutate(formattedData);
   };
 
   return (
