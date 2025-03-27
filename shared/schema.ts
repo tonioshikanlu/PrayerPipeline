@@ -383,3 +383,53 @@ export const resetPasswordSchema = z.object({
 });
 
 export type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
+
+// Meetings table
+export const meetings = pgTable("meetings", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  meetingType: text("meeting_type", { enum: ["zoom", "google_meet"] }).notNull(),
+  meetingLink: text("meeting_link").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Meeting notes table
+export const meetingNotes = pgTable("meeting_notes", {
+  id: serial("id").primaryKey(),
+  meetingId: integer("meeting_id").notNull(),
+  content: text("content").notNull(),
+  summary: text("summary"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  isAiGenerated: boolean("is_ai_generated").default(false).notNull(),
+});
+
+// Insert schemas
+export const insertMeetingSchema = createInsertSchema(meetings).pick({
+  groupId: true,
+  title: true,
+  description: true,
+  meetingType: true,
+  meetingLink: true,
+  startTime: true,
+  endTime: true,
+  createdBy: true,
+});
+
+export const insertMeetingNotesSchema = createInsertSchema(meetingNotes).pick({
+  meetingId: true,
+  content: true,
+  summary: true,
+  isAiGenerated: true,
+});
+
+// Types
+export type Meeting = typeof meetings.$inferSelect;
+export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
+
+export type MeetingNote = typeof meetingNotes.$inferSelect;
+export type InsertMeetingNote = z.infer<typeof insertMeetingNotesSchema>;

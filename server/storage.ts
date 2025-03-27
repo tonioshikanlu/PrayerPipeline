@@ -12,7 +12,9 @@ import {
   prayingFor, type PrayingFor, type InsertPrayingFor,
   passwordResetTokens, type PasswordResetToken, type InsertPasswordResetToken,
   notificationPreferences, type NotificationPreference, type InsertNotificationPreference,
-  groupNotificationPreferences, type GroupNotificationPreference, type InsertGroupNotificationPreference
+  groupNotificationPreferences, type GroupNotificationPreference, type InsertGroupNotificationPreference,
+  meetings, type Meeting, type InsertMeeting,
+  meetingNotes, type MeetingNote, type InsertMeetingNote
 } from "@shared/schema";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "./db";
@@ -123,6 +125,21 @@ export interface IStorage {
   createGroupNotificationPreferences(preferences: InsertGroupNotificationPreference): Promise<GroupNotificationPreference>;
   updateGroupNotificationPreferences(userId: number, groupId: number, preferences: Partial<InsertGroupNotificationPreference>): Promise<GroupNotificationPreference | undefined>;
   
+  // Meeting operations
+  createMeeting(meeting: InsertMeeting): Promise<Meeting>;
+  getMeeting(id: number): Promise<Meeting | undefined>;
+  getGroupMeetings(groupId: number): Promise<Meeting[]>;
+  getUpcomingMeetings(userId: number): Promise<Meeting[]>;
+  updateMeeting(id: number, meeting: Partial<InsertMeeting>): Promise<Meeting | undefined>;
+  deleteMeeting(id: number): Promise<boolean>;
+  
+  // Meeting Notes operations
+  createMeetingNotes(notes: InsertMeetingNote): Promise<MeetingNote>;
+  getMeetingNotes(meetingId: number): Promise<MeetingNote[]>;
+  updateMeetingNotes(id: number, notes: Partial<InsertMeetingNote>): Promise<MeetingNote | undefined>;
+  deleteMeetingNotes(id: number): Promise<boolean>;
+  createPrayerRequestsFromNotes(meetingId: number, groupId: number, userId: number): Promise<PrayerRequest[]>;
+  
   // Session store
   sessionStore: any;
 }
@@ -140,6 +157,10 @@ export class MemStorage implements IStorage {
   private notificationsMap: Map<number, Notification>;
   private prayingForMap: Map<number, PrayingFor>;
   private passwordResetTokensMap: Map<number, PasswordResetToken>;
+  private notificationPreferencesMap = new Map<number, NotificationPreference>();
+  private groupNotificationPreferencesMap = new Map<number, GroupNotificationPreference>();
+  private meetingsMap = new Map<number, Meeting>();
+  private meetingNotesMap = new Map<number, MeetingNote>();
   
   private userIdCounter: number;
   private organizationIdCounter: number;
@@ -153,6 +174,12 @@ export class MemStorage implements IStorage {
   private notificationIdCounter: number;
   private prayingForIdCounter: number;
   private passwordResetTokenIdCounter: number;
+  private notificationPreferencesIdCounter: number;
+  private groupNotificationPreferencesIdCounter: number;
+  private meetingIdCounter: number;
+  private meetingNotesIdCounter: number;
+  private notificationPreferenceIdCounter: number;
+  private groupNotificationPreferenceIdCounter: number;
   
   sessionStore: any;
 
@@ -169,6 +196,10 @@ export class MemStorage implements IStorage {
     this.notificationsMap = new Map();
     this.prayingForMap = new Map();
     this.passwordResetTokensMap = new Map();
+    this.notificationPreferencesMap = new Map();
+    this.groupNotificationPreferencesMap = new Map();
+    this.meetingsMap = new Map();
+    this.meetingNotesMap = new Map();
     
     this.userIdCounter = 1;
     this.organizationIdCounter = 1;
@@ -182,6 +213,12 @@ export class MemStorage implements IStorage {
     this.notificationIdCounter = 1;
     this.prayingForIdCounter = 1;
     this.passwordResetTokenIdCounter = 1;
+    this.notificationPreferencesIdCounter = 1;
+    this.groupNotificationPreferencesIdCounter = 1;
+    this.meetingIdCounter = 1;
+    this.meetingNotesIdCounter = 1;
+    this.notificationPreferenceIdCounter = 1;
+    this.groupNotificationPreferenceIdCounter = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000, // 24 hours
@@ -943,11 +980,6 @@ export class MemStorage implements IStorage {
   }
 
   // Initialize notification preferences maps and counters
-  private notificationPreferencesMap = new Map<number, NotificationPreference>();
-  private groupNotificationPreferencesMap = new Map<number, GroupNotificationPreference>();
-  private notificationPreferenceIdCounter = 1;
-  private groupNotificationPreferenceIdCounter = 1;
-
   // Notification Preferences methods
   async getUserNotificationPreferences(userId: number): Promise<NotificationPreference | undefined> {
     return Array.from(this.notificationPreferencesMap.values())
@@ -1041,6 +1073,148 @@ export class MemStorage implements IStorage {
     this.groupNotificationPreferencesMap.set(existing.id, updatedPrefs);
     return updatedPrefs;
   }
+  
+  // Meeting methods
+  async createMeeting(meeting: InsertMeeting): Promise<Meeting> {
+    const id = this.meetingIdCounter++;
+    const now = new Date();
+    
+    const newMeeting: Meeting = {
+      id,
+      groupId: meeting.groupId,
+      title: meeting.title,
+      description: meeting.description || null,
+      meetingType: meeting.meetingType,
+      meetingLink: meeting.meetingLink,
+      startTime: meeting.startTime,
+      endTime: meeting.endTime || null,
+      createdBy: meeting.createdBy,
+      createdAt: now
+    };
+    
+    this.meetingsMap.set(id, newMeeting);
+    return newMeeting;
+  }
+  
+  async getMeeting(id: number): Promise<Meeting | undefined> {
+    return this.meetingsMap.get(id);
+  }
+  
+  async getGroupMeetings(groupId: number): Promise<Meeting[]> {
+    return Array.from(this.meetingsMap.values())
+      .filter(meeting => meeting.groupId === groupId)
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }
+  
+  async getUpcomingMeetings(userId: number): Promise<Meeting[]> {
+    // Get groups the user is a member of
+    const userGroups = await this.getUserGroups(userId);
+    
+    if (userGroups.length === 0) {
+      return [];
+    }
+    
+    const now = new Date();
+    const groupIds = userGroups.map(group => group.id);
+    
+    // Get meetings for these groups that are in the future
+    return Array.from(this.meetingsMap.values())
+      .filter(meeting => 
+        groupIds.includes(meeting.groupId) && 
+        new Date(meeting.startTime) > now
+      )
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+  }
+  
+  async updateMeeting(id: number, meetingUpdates: Partial<InsertMeeting>): Promise<Meeting | undefined> {
+    const meeting = await this.getMeeting(id);
+    if (!meeting) return undefined;
+    
+    const updatedMeeting = { ...meeting, ...meetingUpdates };
+    this.meetingsMap.set(id, updatedMeeting);
+    return updatedMeeting;
+  }
+  
+  async deleteMeeting(id: number): Promise<boolean> {
+    // First delete all meeting notes
+    const meetingNotes = Array.from(this.meetingNotesMap.values())
+      .filter(note => note.meetingId === id);
+    
+    for (const note of meetingNotes) {
+      this.meetingNotesMap.delete(note.id);
+    }
+    
+    // Then delete the meeting
+    return this.meetingsMap.delete(id);
+  }
+  
+  // Meeting Notes methods
+  async createMeetingNotes(notes: InsertMeetingNote): Promise<MeetingNote> {
+    const id = this.meetingNotesIdCounter++;
+    const now = new Date();
+    
+    const newNote: MeetingNote = {
+      id,
+      meetingId: notes.meetingId,
+      content: notes.content,
+      summary: notes.summary || null,
+      isAiGenerated: notes.isAiGenerated || false,
+      createdAt: now
+    };
+    
+    this.meetingNotesMap.set(id, newNote);
+    return newNote;
+  }
+  
+  async getMeetingNotes(meetingId: number): Promise<MeetingNote[]> {
+    return Array.from(this.meetingNotesMap.values())
+      .filter(note => note.meetingId === meetingId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+  
+  async updateMeetingNotes(id: number, notesUpdates: Partial<InsertMeetingNote>): Promise<MeetingNote | undefined> {
+    const notes = this.meetingNotesMap.get(id);
+    if (!notes) return undefined;
+    
+    const updatedNotes = { ...notes, ...notesUpdates };
+    this.meetingNotesMap.set(id, updatedNotes);
+    return updatedNotes;
+  }
+  
+  async deleteMeetingNotes(id: number): Promise<boolean> {
+    return this.meetingNotesMap.delete(id);
+  }
+  
+  async createPrayerRequestsFromNotes(meetingId: number, groupId: number, userId: number): Promise<PrayerRequest[]> {
+    const notes = await this.getMeetingNotes(meetingId);
+    if (notes.length === 0) return [];
+    
+    // Create prayer requests from notes
+    const meeting = await this.getMeeting(meetingId);
+    if (!meeting) return [];
+    
+    const createdRequests: PrayerRequest[] = [];
+    
+    // Use the meeting title as context for the prayer requests
+    for (const note of notes) {
+      if (!note.content) continue;
+      
+      // Create a prayer request from the note
+      const prayerRequest = await this.createPrayerRequest({
+        groupId,
+        userId,
+        title: `From meeting: ${meeting.title}`,
+        description: note.content,
+        urgency: "medium",
+        isAnonymous: false,
+        status: "waiting"
+      });
+      
+      createdRequests.push(prayerRequest);
+    }
+    
+    return createdRequests;
+  }
 
   // Stale prayer request management  
   async checkAndUpdateStalePrayerRequests(): Promise<number> {
@@ -1094,6 +1268,130 @@ export class DatabaseStorage implements IStorage {
       },
       createTableIfMissing: true
     });
+  }
+  
+  // Meeting methods
+  async createMeeting(meeting: InsertMeeting): Promise<Meeting> {
+    const [newMeeting] = await db.insert(meetings)
+      .values(meeting)
+      .returning();
+    return newMeeting;
+  }
+  
+  async getMeeting(id: number): Promise<Meeting | undefined> {
+    const [meeting] = await db.select()
+      .from(meetings)
+      .where(eq(meetings.id, id));
+    return meeting;
+  }
+  
+  async getGroupMeetings(groupId: number): Promise<Meeting[]> {
+    return db.select()
+      .from(meetings)
+      .where(eq(meetings.groupId, groupId))
+      .orderBy(meetings.startTime);
+  }
+  
+  async getUpcomingMeetings(userId: number): Promise<Meeting[]> {
+    // Get groups the user is a member of
+    const userGroups = await this.getUserGroups(userId);
+    
+    if (userGroups.length === 0) {
+      return [];
+    }
+    
+    const now = new Date();
+    const groupIds = userGroups.map(group => group.id);
+    
+    // Get meetings for these groups that are in the future
+    return db.select()
+      .from(meetings)
+      .where(and(
+        inArray(meetings.groupId, groupIds),
+        sql`${meetings.startTime} > ${now}`
+      ))
+      .orderBy(meetings.startTime);
+  }
+  
+  async updateMeeting(id: number, meetingUpdates: Partial<InsertMeeting>): Promise<Meeting | undefined> {
+    const [updatedMeeting] = await db.update(meetings)
+      .set(meetingUpdates)
+      .where(eq(meetings.id, id))
+      .returning();
+    return updatedMeeting;
+  }
+  
+  async deleteMeeting(id: number): Promise<boolean> {
+    // First delete all meeting notes
+    await db.delete(meetingNotes)
+      .where(eq(meetingNotes.meetingId, id));
+    
+    // Then delete the meeting
+    const result = await db.delete(meetings)
+      .where(eq(meetings.id, id))
+      .returning();
+    return result.length > 0;
+  }
+  
+  // Meeting Notes methods
+  async createMeetingNotes(notes: InsertMeetingNote): Promise<MeetingNote> {
+    const [newNote] = await db.insert(meetingNotes)
+      .values(notes)
+      .returning();
+    return newNote;
+  }
+  
+  async getMeetingNotes(meetingId: number): Promise<MeetingNote[]> {
+    return db.select()
+      .from(meetingNotes)
+      .where(eq(meetingNotes.meetingId, meetingId))
+      .orderBy(meetingNotes.createdAt);
+  }
+  
+  async updateMeetingNotes(id: number, notesUpdates: Partial<InsertMeetingNote>): Promise<MeetingNote | undefined> {
+    const [updatedNotes] = await db.update(meetingNotes)
+      .set(notesUpdates)
+      .where(eq(meetingNotes.id, id))
+      .returning();
+    return updatedNotes;
+  }
+  
+  async deleteMeetingNotes(id: number): Promise<boolean> {
+    const result = await db.delete(meetingNotes)
+      .where(eq(meetingNotes.id, id))
+      .returning();
+    return result.length > 0;
+  }
+  
+  async createPrayerRequestsFromNotes(meetingId: number, groupId: number, userId: number): Promise<PrayerRequest[]> {
+    const notes = await this.getMeetingNotes(meetingId);
+    if (notes.length === 0) return [];
+    
+    // Create prayer requests from notes
+    const meeting = await this.getMeeting(meetingId);
+    if (!meeting) return [];
+    
+    const createdRequests: PrayerRequest[] = [];
+    
+    // Use the meeting title as context for the prayer requests
+    for (const note of notes) {
+      if (!note.content) continue;
+      
+      // Create a prayer request from the note
+      const prayerRequest = await this.createPrayerRequest({
+        groupId,
+        userId,
+        title: `From meeting: ${meeting.title}`,
+        description: note.content,
+        urgency: "medium",
+        isAnonymous: false,
+        status: "waiting"
+      });
+      
+      createdRequests.push(prayerRequest);
+    }
+    
+    return createdRequests;
   }
 
   // User methods
