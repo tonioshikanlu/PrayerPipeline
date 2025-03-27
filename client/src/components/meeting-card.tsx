@@ -27,22 +27,22 @@ export default function MeetingCard({
   const { user } = useAuth();
 
   // Check if the meeting is in the past
-  const isPastMeeting = new Date(meeting.meetingDate) < new Date();
+  const isPastMeeting = new Date(meeting.startTime) < new Date();
   
   // Format the meeting date and time
-  const meetingDate = format(new Date(meeting.meetingDate), "EEEE, MMMM d, yyyy");
-  const meetingTime = format(new Date(meeting.meetingDate), "h:mm a");
+  const meetingDate = format(new Date(meeting.startTime), "EEEE, MMMM d, yyyy");
+  const meetingTime = format(new Date(meeting.startTime), "h:mm a");
   
-  // Determine if the meeting is virtual or physical
-  const isVirtual = !!meeting.meetingUrl;
+  // Determine if the meeting is virtual (Zoom or Google Meet)
+  const isVirtual = meeting.meetingType === 'zoom' || meeting.meetingType === 'google_meet';
   
   // Handle join meeting click
   const handleJoinMeeting = () => {
-    if (meeting.meetingUrl) {
-      window.open(meeting.meetingUrl, "_blank");
+    if (meeting.meetingLink) {
+      window.open(meeting.meetingLink, "_blank");
     } else {
       toast({
-        title: "No meeting URL provided",
+        title: "No meeting link provided",
         description: "This meeting doesn't have a virtual meeting link.",
         variant: "destructive",
       });
@@ -55,8 +55,8 @@ export default function MeetingCard({
 Meeting: ${meeting.title}
 Date: ${meetingDate}
 Time: ${meetingTime}
-${meeting.meetingUrl ? `URL: ${meeting.meetingUrl}` : `Location: ${meeting.location}`}
-Description: ${meeting.description}
+${isVirtual ? `URL: ${meeting.meetingLink}` : 'In-person meeting'}
+Description: ${meeting.description || 'No description provided'}
     `.trim();
     
     navigator.clipboard.writeText(meetingInfo);
@@ -148,7 +148,7 @@ Description: ${meeting.description}
           
           <Badge className="bg-neutral-100 text-neutral-800 hover:bg-neutral-200">
             <User className="h-3 w-3 mr-1" />
-            Host: {meeting.createdByUser?.name?.split(" ")[0] || "Unknown"}
+            Host: {user?.id === meeting.createdBy ? "You" : "User " + meeting.createdBy}
           </Badge>
           
           {isPastMeeting && (
@@ -166,17 +166,17 @@ Description: ${meeting.description}
         
         {isVirtual && (
           <div className="mt-2 text-sm text-primary truncate">
-            <a href={meeting.meetingUrl} target="_blank" rel="noopener noreferrer" className="flex items-center hover:underline">
+            <a href={meeting.meetingLink} target="_blank" rel="noopener noreferrer" className="flex items-center hover:underline">
               <ExternalLink className="h-3.5 w-3.5 mr-1" />
-              {meeting.meetingUrl}
+              {meeting.meetingLink}
             </a>
           </div>
         )}
         
-        {!isVirtual && meeting.location && (
+        {!isVirtual && (
           <div className="mt-2 text-sm text-neutral-600 flex items-start gap-1">
             <MapPin className="h-3.5 w-3.5 mt-0.5" />
-            <span>{meeting.location}</span>
+            <span>In-person meeting</span>
           </div>
         )}
       </CardContent>
