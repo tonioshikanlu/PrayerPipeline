@@ -178,7 +178,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(groups);
   });
 
+  app.get("/api/groups/category/:category", isAuthenticated, async (req, res) => {
+    const { category } = req.params;
+    const groups = await storage.getGroupsByCategory(category);
+    res.json(groups);
+  });
+
   app.get("/api/groups/user", isAuthenticated, async (req, res) => {
+    assertUser(req);
     const groups = await storage.getUserGroups(req.user.id);
     res.json(groups);
   });
@@ -337,6 +344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Self-join a group
   app.post("/api/groups/:groupId/join", isAuthenticated, async (req, res) => {
+    assertUser(req);
     const groupId = parseInt(req.params.groupId);
     if (isNaN(groupId)) {
       return res.status(400).json({ message: "Invalid group ID" });
@@ -372,6 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Self-leave a group
   app.post("/api/groups/:groupId/leave", isAuthenticated, async (req, res) => {
+    assertUser(req);
     const groupId = parseInt(req.params.groupId);
     if (isNaN(groupId)) {
       return res.status(400).json({ message: "Invalid group ID" });
@@ -454,6 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/requests/:requestId", isAuthenticated, async (req, res) => {
+    assertUser(req);
     const requestId = parseInt(req.params.requestId);
     if (isNaN(requestId)) {
       return res.status(400).json({ message: "Invalid request ID" });

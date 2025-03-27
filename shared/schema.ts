@@ -17,6 +17,7 @@ export const groups = pgTable("groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  category: text("category", { enum: ["health", "career", "family", "relationship", "other"] }).default("other").notNull(),
   privacy: text("privacy", { enum: ["open", "request", "invite"] }).default("open").notNull(),
   leaderRotation: integer("leader_rotation").default(0), // 0 = no rotation, 30 = 30 days, etc.
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -104,6 +105,7 @@ export const insertUserSchema = createInsertSchema(users)
 export const insertGroupSchema = createInsertSchema(groups).pick({
   name: true,
   description: true,
+  category: true,
   privacy: true,
   leaderRotation: true,
   createdBy: true,

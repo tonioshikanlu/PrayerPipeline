@@ -53,6 +53,7 @@ export default function CreateGroupModal({
     defaultValues: {
       name: "",
       description: "",
+      category: "other",
       privacy: "request",
       leaderRotation: 0,
     },
@@ -130,6 +131,34 @@ export default function CreateGroupModal({
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="health">Health</SelectItem>
+                      <SelectItem value="career">Career</SelectItem>
+                      <SelectItem value="family">Family</SelectItem>
+                      <SelectItem value="relationship">Relationship</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

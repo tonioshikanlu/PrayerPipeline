@@ -48,21 +48,38 @@ export default function Header() {
   return (
     <header className="bg-white shadow-sm fixed top-0 inset-x-0 z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-        <div className="flex items-center cursor-pointer" onClick={() => navigate("/")}>
-          <svg
-            className="h-8 w-8 text-primary"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 100-12 6 6 0 000 12zm0-9a1 1 0 011 1v3a1 1 0 01-1 1H7a1 1 0 110-2h2V8a1 1 0 011-1z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <h1 className="ml-2 text-xl font-bold font-heading text-neutral-800">
-            Prayer Pipeline
-          </h1>
+        <div className="flex items-center">
+          <div className="cursor-pointer flex items-center" onClick={() => navigate("/")}>
+            <svg
+              className="h-8 w-8 text-primary"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 14a6 6 0 100-12 6 6 0 000 12zm0-9a1 1 0 011 1v3a1 1 0 01-1 1H7a1 1 0 110-2h2V8a1 1 0 011-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <h1 className="ml-2 text-xl font-bold font-heading text-neutral-800">
+              Prayer Pipeline
+            </h1>
+          </div>
+          
+          <nav className="ml-10 hidden md:flex space-x-6">
+            <a 
+              className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
+              onClick={() => navigate("/")}
+            >
+              Home
+            </a>
+            <a 
+              className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
+              onClick={() => navigate("/explore")}
+            >
+              Explore Groups
+            </a>
+          </nav>
         </div>
         <div className="flex items-center space-x-4">
           <NotificationsDropdown />

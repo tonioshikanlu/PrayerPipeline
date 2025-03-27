@@ -29,6 +29,7 @@ export interface IStorage {
   createGroup(group: InsertGroup): Promise<Group>;
   getGroup(id: number): Promise<Group | undefined>;
   getGroups(): Promise<Group[]>;
+  getGroupsByCategory(category: string): Promise<Group[]>;
   getUserGroups(userId: number): Promise<Group[]>;
   updateGroup(id: number, group: Partial<InsertGroup>): Promise<Group | undefined>;
   deleteGroup(id: number): Promise<boolean>;
@@ -186,6 +187,7 @@ export class MemStorage implements IStorage {
       id,
       createdAt: now,
       description: insertGroup.description ?? null,
+      category: insertGroup.category || "other",
       privacy: insertGroup.privacy || "open",
       leaderRotation: insertGroup.leaderRotation ?? null
     };
@@ -208,6 +210,11 @@ export class MemStorage implements IStorage {
   
   async getGroups(): Promise<Group[]> {
     return Array.from(this.groupsMap.values());
+  }
+  
+  async getGroupsByCategory(category: string): Promise<Group[]> {
+    return Array.from(this.groupsMap.values())
+      .filter(group => group.category === category);
   }
   
   async getUserGroups(userId: number): Promise<Group[]> {
@@ -674,6 +681,7 @@ export class DatabaseStorage implements IStorage {
       ...insertGroup,
       createdAt: now,
       description: insertGroup.description ?? null,
+      category: insertGroup.category || "other",
       privacy: insertGroup.privacy || "open",
       leaderRotation: insertGroup.leaderRotation ?? null
     };
@@ -700,6 +708,12 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(groups);
   }
   
+  async getGroupsByCategory(category: string): Promise<Group[]> {
+    return await db.select()
+      .from(groups)
+      .where(sql`${groups.category} = ${category}`);
+  }
+  
   async getUserGroups(userId: number): Promise<Group[]> {
     // Join group_members and groups tables to get user's groups
     const result = await db
@@ -710,6 +724,7 @@ export class DatabaseStorage implements IStorage {
         createdAt: groups.createdAt,
         createdBy: groups.createdBy,
         privacy: groups.privacy,
+        category: groups.category,
         leaderRotation: groups.leaderRotation
       })
       .from(groupMembers)

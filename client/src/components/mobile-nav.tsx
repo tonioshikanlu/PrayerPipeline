@@ -1,8 +1,8 @@
 import { useLocation } from "wouter";
-import { Home, Users, Heart, User } from "lucide-react";
+import { Home, Users, Heart, User, Search } from "lucide-react";
 
 type MobileNavProps = {
-  active: "home" | "groups" | "prayers" | "profile";
+  active: "home" | "groups" | "explore" | "prayers" | "profile";
 };
 
 export default function MobileNav({ active }: MobileNavProps) {
