@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { insertGroupSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { z } from "zod";
 import {
   Dialog,
@@ -36,13 +38,21 @@ import {
 type CreateGroupModalProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
+  organizationId?: number; // Optional organization ID prop
 };
 
 export default function CreateGroupModal({
   open,
   setOpen,
+  organizationId,
 }: CreateGroupModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { data: userOrgs } = useOrganizations();
+  
+  // If no organizationId is provided, use the first organization the user is a member of
+  // This ensures we always have a valid organization ID for group creation
+  const activeOrgId = organizationId || (userOrgs?.length ? userOrgs[0].id : undefined);
 
   // Define our form schema type
   const createGroupSchema = insertGroupSchema.omit({ createdBy: true });
@@ -56,8 +66,16 @@ export default function CreateGroupModal({
       category: "other",
       privacy: "request",
       leaderRotation: 0,
+      organizationId: activeOrgId,
     },
   });
+
+  // Update form when organizationId changes
+  useEffect(() => {
+    if (activeOrgId) {
+      form.setValue("organizationId", activeOrgId);
+    }
+  }, [activeOrgId, form]);
 
   const createGroupMutation = useMutation({
     mutationFn: async (data: CreateGroupInput) => {
@@ -73,6 +91,7 @@ export default function CreateGroupModal({
       setOpen(false);
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["/api/groups/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/groups"] });
     },
     onError: (error) => {
       toast({
@@ -84,6 +103,16 @@ export default function CreateGroupModal({
   });
 
   const onSubmit = (data: CreateGroupInput) => {
+    // Don't allow submitting without an organization ID
+    if (!data.organizationId) {
+      toast({
+        title: "Error creating group",
+        description: "You must be a member of an organization to create a group.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     createGroupMutation.mutate(data);
   };
 

@@ -262,8 +262,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/groups", isAuthenticated, async (req, res) => {
-    const groups = await storage.getGroups();
-    res.json(groups);
+    assertUser(req);
+    // Get the user's organizations
+    const userOrganizations = await storage.getUserOrganizations(req.user.id);
+    
+    if (userOrganizations.length === 0) {
+      return res.json([]);
+    }
+    
+    // Get only groups from the user's organizations
+    const organizationIds = userOrganizations.map(org => org.id);
+    const allGroups = await storage.getGroups();
+    
+    // Filter groups to only include those from the user's organizations
+    const filteredGroups = allGroups.filter(group => 
+      organizationIds.includes(group.organizationId)
+    );
+    
+    res.json(filteredGroups);
   });
 
   app.get("/api/groups/category/:category", isAuthenticated, async (req, res) => {
