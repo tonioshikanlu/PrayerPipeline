@@ -1,8 +1,8 @@
 import { useLocation } from "wouter";
-import { Home, Users, Heart, User, Search, Building2 } from "lucide-react";
+import { Home, User, Search } from "lucide-react";
 
 type MobileNavProps = {
-  active: "home" | "groups" | "explore" | "organizations" | "profile";
+  active: "home" | "explore" | "profile";
 };
 
 export default function MobileNav({ active }: MobileNavProps) {
@@ -10,7 +10,7 @@ export default function MobileNav({ active }: MobileNavProps) {
 
   return (
     <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-neutral-200 py-2 md:hidden">
-      <div className="grid grid-cols-5 gap-1">
+      <div className="grid grid-cols-3 gap-1">
         <button
           onClick={() => navigate("/")}
           className={`flex flex-col items-center justify-center py-1 ${
@@ -22,17 +22,6 @@ export default function MobileNav({ active }: MobileNavProps) {
         </button>
         <button
           onClick={() => {
-            navigate("/");
-          }}
-          className={`flex flex-col items-center justify-center py-1 ${
-            active === "groups" ? "text-primary" : "text-neutral-500 hover:text-primary"
-          }`}
-        >
-          <Users className="h-6 w-6" />
-          <span className="text-xs mt-1">Groups</span>
-        </button>
-        <button
-          onClick={() => {
             navigate("/explore");
           }}
           className={`flex flex-col items-center justify-center py-1 ${
@@ -41,17 +30,6 @@ export default function MobileNav({ active }: MobileNavProps) {
         >
           <Search className="h-6 w-6" />
           <span className="text-xs mt-1">Explore</span>
-        </button>
-        <button
-          onClick={() => {
-            navigate("/organizations");
-          }}
-          className={`flex flex-col items-center justify-center py-1 ${
-            active === "organizations" ? "text-primary" : "text-neutral-500 hover:text-primary"
-          }`}
-        >
-          <Building2 className="h-6 w-6" />
-          <span className="text-xs mt-1">Orgs</span>
         </button>
         <button
           onClick={() => {

@@ -76,21 +76,9 @@ export default function Header() {
             </a>
             <a 
               className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
-              onClick={() => navigate("/")}
-            >
-              Groups
-            </a>
-            <a 
-              className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
               onClick={() => navigate("/explore")}
             >
               Explore
-            </a>
-            <a 
-              className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
-              onClick={() => navigate("/organizations")}
-            >
-              Organizations
             </a>
             <a 
               className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
@@ -124,6 +112,12 @@ export default function Header() {
                   onClick={() => navigate("/profile")}
                 >
                   Your Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="cursor-pointer"
+                  onClick={() => navigate("/organizations")}
+                >
+                  Organizations
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="cursor-pointer"
