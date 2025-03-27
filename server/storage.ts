@@ -380,9 +380,11 @@ export class MemStorage implements IStorage {
   // Organization Tag methods
   async createOrganizationTag(tag: InsertOrganizationTag): Promise<OrganizationTag> {
     const id = this.organizationTagIdCounter++;
+    const now = new Date();
     const organizationTag: OrganizationTag = {
       ...tag,
-      id
+      id,
+      createdAt: now
     };
     
     this.organizationTagsMap.set(id, organizationTag);
@@ -944,11 +946,22 @@ export class MemStorage implements IStorage {
     const id = this.notificationPreferenceIdCounter++;
     const now = new Date();
     
+    // Ensure all required fields have default values
     const newPrefs: NotificationPreference = {
-      ...preferences,
       id,
+      userId: preferences.userId,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      emailNotifications: preferences.emailNotifications ?? true,
+      pushNotifications: preferences.pushNotifications ?? true,
+      inAppNotifications: preferences.inAppNotifications ?? true,
+      prayerRequests: preferences.prayerRequests ?? true,
+      groupInvitations: preferences.groupInvitations ?? true,
+      comments: preferences.comments ?? true,
+      statusUpdates: preferences.statusUpdates ?? true,
+      groupUpdates: preferences.groupUpdates ?? true,
+      stalePrayerReminders: preferences.stalePrayerReminders ?? true,
+      reminderInterval: preferences.reminderInterval ?? 7
     };
     
     this.notificationPreferencesMap.set(id, newPrefs);
@@ -984,11 +997,19 @@ export class MemStorage implements IStorage {
     const id = this.groupNotificationPreferenceIdCounter++;
     const now = new Date();
     
+    // Ensure all required fields have default values
     const newPrefs: GroupNotificationPreference = {
-      ...preferences,
       id,
+      userId: preferences.userId,
+      groupId: preferences.groupId,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      muted: preferences.muted ?? false,
+      newPrayerRequests: preferences.newPrayerRequests ?? true,
+      prayerStatusUpdates: preferences.prayerStatusUpdates ?? true,
+      newComments: preferences.newComments ?? true,
+      groupUpdates: preferences.groupUpdates ?? true,
+      meetingReminders: preferences.meetingReminders ?? true
     };
     
     this.groupNotificationPreferencesMap.set(id, newPrefs);
@@ -1870,6 +1891,70 @@ export class DatabaseStorage implements IStorage {
     const result = await db.update(passwordResetTokens)
       .set({ isUsed: true })
       .where(eq(passwordResetTokens.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  // Notification Preferences methods
+  async getUserNotificationPreferences(userId: number): Promise<NotificationPreference | undefined> {
+    const result = await db.select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId));
+    
+    return result[0];
+  }
+
+  async createNotificationPreferences(preferences: InsertNotificationPreference): Promise<NotificationPreference> {
+    const result = await db.insert(notificationPreferences)
+      .values(preferences)
+      .returning();
+    
+    return result[0];
+  }
+
+  async updateNotificationPreferences(userId: number, preferences: Partial<InsertNotificationPreference>): Promise<NotificationPreference | undefined> {
+    const result = await db.update(notificationPreferences)
+      .set(preferences)
+      .where(eq(notificationPreferences.userId, userId))
+      .returning();
+    
+    return result[0];
+  }
+
+  // Group Notification Preferences methods
+  async getGroupNotificationPreferences(userId: number, groupId: number): Promise<GroupNotificationPreference | undefined> {
+    const result = await db.select()
+      .from(groupNotificationPreferences)
+      .where(and(
+        eq(groupNotificationPreferences.userId, userId),
+        eq(groupNotificationPreferences.groupId, groupId)
+      ));
+    
+    return result[0];
+  }
+
+  async getUserGroupNotificationPreferences(userId: number): Promise<GroupNotificationPreference[]> {
+    return db.select()
+      .from(groupNotificationPreferences)
+      .where(eq(groupNotificationPreferences.userId, userId));
+  }
+
+  async createGroupNotificationPreferences(preferences: InsertGroupNotificationPreference): Promise<GroupNotificationPreference> {
+    const result = await db.insert(groupNotificationPreferences)
+      .values(preferences)
+      .returning();
+    
+    return result[0];
+  }
+
+  async updateGroupNotificationPreferences(userId: number, groupId: number, preferences: Partial<InsertGroupNotificationPreference>): Promise<GroupNotificationPreference | undefined> {
+    const result = await db.update(groupNotificationPreferences)
+      .set(preferences)
+      .where(and(
+        eq(groupNotificationPreferences.userId, userId),
+        eq(groupNotificationPreferences.groupId, groupId)
+      ))
       .returning();
     
     return result[0];

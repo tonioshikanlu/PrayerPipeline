@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
 import Header from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import {
   BellRing,
   BellOff,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 
 import {
@@ -51,6 +53,12 @@ export default function SettingsPage() {
     unsubscribe,
     requestPermission
   } = usePushNotifications();
+  const {
+    preferences: notificationPreferences,
+    isLoading: preferencesLoading,
+    updatePreferences,
+    isPending: updatePending
+  } = useNotificationPreferences();
 
   // Password change form schema
   const passwordSchema = z
@@ -543,37 +551,76 @@ export default function SettingsPage() {
                       {/* Email notifications section */}
                       <div>
                         <h3 className="font-medium text-lg mb-3">Email Notifications</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">Prayer Requests</p>
-                              <p className="text-sm text-muted-foreground">
-                                Get notified about new prayer requests in your groups
-                              </p>
-                            </div>
-                            <Switch defaultChecked />
+                        {preferencesLoading ? (
+                          <div className="flex justify-center py-4">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
                           </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">Group Invitations</p>
-                              <p className="text-sm text-muted-foreground">
-                                Get notified when you're invited to a new group
-                              </p>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">Email Notifications</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Enable or disable all email notifications
+                                </p>
+                              </div>
+                              <Switch 
+                                checked={notificationPreferences?.emailNotifications} 
+                                onCheckedChange={(checked) => {
+                                  updatePreferences({ emailNotifications: checked });
+                                }}
+                              />
                             </div>
-                            <Switch defaultChecked />
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">Comments</p>
-                              <p className="text-sm text-muted-foreground">
-                                Get notified when someone comments on your prayer request
-                              </p>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">Prayer Requests</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Get notified about new prayer requests in your groups
+                                </p>
+                              </div>
+                              <Switch 
+                                checked={notificationPreferences?.prayerRequests} 
+                                disabled={!notificationPreferences?.emailNotifications}
+                                onCheckedChange={(checked) => {
+                                  updatePreferences({ prayerRequests: checked });
+                                }}
+                              />
                             </div>
-                            <Switch defaultChecked />
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">Group Invitations</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Get notified when you're invited to a new group
+                                </p>
+                              </div>
+                              <Switch 
+                                checked={notificationPreferences?.groupInvitations} 
+                                disabled={!notificationPreferences?.emailNotifications}
+                                onCheckedChange={(checked) => {
+                                  updatePreferences({ groupInvitations: checked });
+                                }}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">Comments</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Get notified when someone comments on your prayer request
+                                </p>
+                              </div>
+                              <Switch 
+                                checked={notificationPreferences?.comments} 
+                                disabled={!notificationPreferences?.emailNotifications}
+                                onCheckedChange={(checked) => {
+                                  updatePreferences({ comments: checked });
+                                }}
+                              />
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                       
                       <Separator />
@@ -581,41 +628,109 @@ export default function SettingsPage() {
                       {/* In-app notifications section */}
                       <div>
                         <h3 className="font-medium text-lg mb-3">In-App Notifications</h3>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">All Notifications</p>
-                              <p className="text-sm text-muted-foreground">
-                                Enable or disable all in-app notifications
-                              </p>
-                            </div>
-                            <Switch defaultChecked />
+                        {preferencesLoading ? (
+                          <div className="flex justify-center py-4">
+                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
                           </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">Status Updates</p>
-                              <p className="text-sm text-muted-foreground">
-                                Get notified when prayer request statuses are updated
-                              </p>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">In-App Notifications</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Enable or disable all in-app notifications
+                                </p>
+                              </div>
+                              <Switch 
+                                checked={notificationPreferences?.inAppNotifications} 
+                                onCheckedChange={(checked) => {
+                                  updatePreferences({ inAppNotifications: checked });
+                                }}
+                              />
                             </div>
-                            <Switch defaultChecked />
-                          </div>
-                          
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">Group Updates</p>
-                              <p className="text-sm text-muted-foreground">
-                                Get notified about changes to groups you're in
-                              </p>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">Status Updates</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Get notified when prayer request statuses are updated
+                                </p>
+                              </div>
+                              <Switch 
+                                checked={notificationPreferences?.statusUpdates} 
+                                disabled={!notificationPreferences?.inAppNotifications}
+                                onCheckedChange={(checked) => {
+                                  updatePreferences({ statusUpdates: checked });
+                                }}
+                              />
                             </div>
-                            <Switch defaultChecked />
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">Group Updates</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Get notified about changes to groups you're in
+                                </p>
+                              </div>
+                              <Switch 
+                                checked={notificationPreferences?.groupUpdates} 
+                                disabled={!notificationPreferences?.inAppNotifications}
+                                onCheckedChange={(checked) => {
+                                  updatePreferences({ groupUpdates: checked });
+                                }}
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">Stale Prayer Reminders</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Get reminders about prayer requests that need updates
+                                </p>
+                              </div>
+                              <Switch 
+                                checked={notificationPreferences?.stalePrayerReminders} 
+                                disabled={!notificationPreferences?.inAppNotifications}
+                                onCheckedChange={(checked) => {
+                                  updatePreferences({ stalePrayerReminders: checked });
+                                }}
+                              />
+                            </div>
+                            
+                            {notificationPreferences?.stalePrayerReminders && (
+                              <div className="pl-4 border-l-2 border-muted-foreground/20 mt-2">
+                                <div className="mb-2">
+                                  <p className="font-medium text-sm">Reminder Interval (days)</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    How often to remind you about prayers needing updates
+                                  </p>
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => {
+                                      if (notificationPreferences?.reminderInterval && notificationPreferences.reminderInterval > 1) {
+                                        updatePreferences({ reminderInterval: notificationPreferences.reminderInterval - 1 });
+                                      }
+                                    }}
+                                    disabled={!notificationPreferences?.reminderInterval || notificationPreferences.reminderInterval <= 1}
+                                  >-</Button>
+                                  <span className="font-medium w-8 text-center">{notificationPreferences?.reminderInterval || 7}</span>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => {
+                                      if (notificationPreferences?.reminderInterval) {
+                                        updatePreferences({ reminderInterval: notificationPreferences.reminderInterval + 1 });
+                                      }
+                                    }}
+                                  >+</Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-6">
-                        <Button>Save Notification Settings</Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>

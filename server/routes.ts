@@ -1359,6 +1359,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Notification Preferences routes
+  app.get("/api/notification-preferences", isAuthenticated, async (req, res, next) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const preferences = await storage.getUserNotificationPreferences(req.user.id);
+      
+      if (!preferences) {
+        // Create default preferences if none exist
+        const newPreferences = await storage.createNotificationPreferences({
+          userId: req.user.id,
+          emailNotifications: true,
+          pushNotifications: true,
+          inAppNotifications: true,
+          prayerRequests: true,
+          groupInvitations: true,
+          comments: true,
+          statusUpdates: true,
+          groupUpdates: true,
+          stalePrayerReminders: true,
+          reminderInterval: 7
+        });
+        return res.status(200).json(newPreferences);
+      }
+      
+      res.status(200).json(preferences);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/notification-preferences", isAuthenticated, async (req, res, next) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      // Get existing preferences
+      let preferences = await storage.getUserNotificationPreferences(req.user.id);
+      
+      if (!preferences) {
+        // Create default preferences if none exist
+        preferences = await storage.createNotificationPreferences({
+          userId: req.user.id,
+          ...req.body // Apply the requested changes
+        });
+        return res.status(200).json(preferences);
+      }
+      
+      // Update existing preferences
+      const updatedPreferences = await storage.updateNotificationPreferences(
+        req.user.id,
+        req.body
+      );
+      
+      res.status(200).json(updatedPreferences);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Group Notification Preferences routes
+  app.get("/api/groups/:groupId/notification-preferences", isAuthenticated, async (req, res, next) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const { groupId } = req.params;
+      const groupIdNum = parseInt(groupId, 10);
+      
+      if (isNaN(groupIdNum)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+      
+      // Check if the user is a member of the group
+      const membership = await storage.getGroupMember(groupIdNum, req.user.id);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this group" });
+      }
+      
+      const preferences = await storage.getGroupNotificationPreferences(req.user.id, groupIdNum);
+      
+      if (!preferences) {
+        // Create default preferences if none exist
+        const newPreferences = await storage.createGroupNotificationPreferences({
+          userId: req.user.id,
+          groupId: groupIdNum,
+          muted: false,
+          newPrayerRequests: true,
+          prayerStatusUpdates: true,
+          newComments: true,
+          groupUpdates: true,
+          meetingReminders: true
+        });
+        return res.status(200).json(newPreferences);
+      }
+      
+      res.status(200).json(preferences);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/api/groups/:groupId/notification-preferences", isAuthenticated, async (req, res, next) => {
+    try {
+      if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+      
+      const { groupId } = req.params;
+      const groupIdNum = parseInt(groupId, 10);
+      
+      if (isNaN(groupIdNum)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+      
+      // Check if the user is a member of the group
+      const membership = await storage.getGroupMember(groupIdNum, req.user.id);
+      if (!membership) {
+        return res.status(403).json({ message: "You are not a member of this group" });
+      }
+      
+      // Get existing preferences
+      let preferences = await storage.getGroupNotificationPreferences(req.user.id, groupIdNum);
+      
+      if (!preferences) {
+        // Create default preferences if none exist
+        preferences = await storage.createGroupNotificationPreferences({
+          userId: req.user.id,
+          groupId: groupIdNum,
+          ...req.body // Apply the requested changes
+        });
+        return res.status(200).json(preferences);
+      }
+      
+      // Update existing preferences
+      const updatedPreferences = await storage.updateGroupNotificationPreferences(
+        req.user.id,
+        groupIdNum,
+        req.body
+      );
+      
+      res.status(200).json(updatedPreferences);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
