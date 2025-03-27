@@ -261,6 +261,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all favorite groups for the current user
+  // This specific route must be defined BEFORE any parameterized routes like /api/groups/:groupId
+  app.get("/api/groups/favorites", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const userId = req.user.id;
+    
+    try {
+      const favoriteGroups = await storage.getUserFavoriteGroups(userId);
+      res.json(favoriteGroups);
+    } catch (error) {
+      console.error("Error fetching favorite groups:", error);
+      res.status(500).json({ message: "Failed to fetch favorite groups" });
+    }
+  });
+  
   app.get("/api/groups", isAuthenticated, async (req, res) => {
     assertUser(req);
     // Get the user's organizations
@@ -958,19 +973,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error removing favorite group:", error);
       res.status(500).json({ message: "Failed to remove group from favorites" });
-    }
-  });
-  
-  app.get("/api/groups/favorites", isAuthenticated, async (req, res) => {
-    assertUser(req);
-    const userId = req.user.id;
-    
-    try {
-      const favoriteGroups = await storage.getUserFavoriteGroups(userId);
-      res.json(favoriteGroups);
-    } catch (error) {
-      console.error("Error fetching favorite groups:", error);
-      res.status(500).json({ message: "Failed to fetch favorite groups" });
     }
   });
   
