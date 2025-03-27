@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { 
   Building, 
   Plus,
-  Loader2
+  Loader2,
+  LogOut
 } from "lucide-react";
 import {
   Dialog,
@@ -40,12 +41,14 @@ type CreateOrgData = z.infer<typeof createOrgSchema>;
 export default function OrganizationSelector() {
   const [_, navigate] = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [switchOrgDialogOpen, setSwitchOrgDialogOpen] = useState(false);
   const { 
     organizations, 
     currentOrganization, 
     setCurrentOrganizationId, 
     isLoading,
-    createOrganizationMutation
+    createOrganizationMutation,
+    leaveOrganizationMutation
   } = useOrganizations();
 
   const form = useForm<CreateOrgData>({
@@ -67,8 +70,22 @@ export default function OrganizationSelector() {
       navigate("/organizations");
     } else if (orgId === "create") {
       setDialogOpen(true);
+    } else if (orgId === "leave" && currentOrganization) {
+      // Open confirmation dialog for leaving the current organization
+      setSwitchOrgDialogOpen(true);
     } else {
       setCurrentOrganizationId(parseInt(orgId));
+    }
+  };
+
+  const handleLeaveOrganization = async () => {
+    if (!currentOrganization) return;
+    
+    try {
+      await leaveOrganizationMutation.mutateAsync(currentOrganization.id);
+      setSwitchOrgDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to leave organization:", error);
     }
   };
 
@@ -120,6 +137,14 @@ export default function OrganizationSelector() {
                   Create organization
                 </div>
               </SelectItem>
+              {currentOrganization && organizations.length > 1 && (
+                <SelectItem value="leave">
+                  <div className="flex items-center gap-2 text-red-500">
+                    <Loader2 className={`h-4 w-4 ${leaveOrganizationMutation.isPending ? 'animate-spin' : 'hidden'}`} />
+                    Leave {currentOrganization.name}
+                  </div>
+                </SelectItem>
+              )}
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -193,6 +218,73 @@ export default function OrganizationSelector() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Organization Dialog */}
+      <Dialog open={switchOrgDialogOpen} onOpenChange={setSwitchOrgDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Leave Organization</DialogTitle>
+            <DialogDescription>
+              {currentOrganization?.name && `You are about to leave ${currentOrganization.name}. You will need to select another organization to continue.`}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <h3 className="text-sm font-medium mb-2">Select an organization to join:</h3>
+            
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {organizations
+                .filter(org => org.id !== currentOrganization?.id)
+                .map(org => (
+                  <button
+                    key={org.id}
+                    className="flex items-center w-full p-2 rounded-md hover:bg-gray-100 transition-colors"
+                    onClick={() => {
+                      if (currentOrganization) {
+                        leaveOrganizationMutation.mutate(currentOrganization.id);
+                        setCurrentOrganizationId(org.id);
+                        setSwitchOrgDialogOpen(false);
+                      }
+                    }}
+                  >
+                    <Building className="h-5 w-5 mr-2 text-primary" />
+                    <span>{org.name}</span>
+                  </button>
+                ))
+              }
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSwitchOrgDialogOpen(false)}
+              disabled={leaveOrganizationMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleLeaveOrganization}
+              disabled={leaveOrganizationMutation.isPending}
+            >
+              {leaveOrganizationMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Leaving...
+                </>
+              ) : (
+                <>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Leave Organization
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

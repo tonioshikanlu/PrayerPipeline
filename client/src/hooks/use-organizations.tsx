@@ -18,6 +18,7 @@ type OrganizationContextType = {
   createOrganizationMutation: UseMutationResult<Organization, Error, Omit<InsertOrganization, "createdBy">>;
   updateOrganizationMutation: UseMutationResult<Organization, Error, { id: number, data: Partial<InsertOrganization> }>;
   deleteOrganizationMutation: UseMutationResult<void, Error, number>;
+  leaveOrganizationMutation: UseMutationResult<void, Error, number>;
   inviteMemberMutation: UseMutationResult<void, Error, { organizationId: number, email: string, role: "admin" | "member" }>;
   removeMemberMutation: UseMutationResult<void, Error, { organizationId: number, userId: number }>;
   organizationMembers: OrganizationMember[];
@@ -121,13 +122,24 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     mutationFn: async (id: number) => {
       await apiRequest("DELETE", `/api/organizations/${id}`);
     },
-    onSuccess: () => {
+    onSuccess: (_, deletedOrgId) => {
       queryClient.invalidateQueries({ queryKey: ["/api/organizations"] });
       toast({
         title: "Organization deleted",
         description: "The organization has been deleted successfully.",
       });
-      setCurrentOrganizationId(organizations.length > 0 ? organizations[0].id : null);
+      
+      // If we're deleting the current organization, we need to select a new one
+      if (currentOrganizationId === deletedOrgId) {
+        const remainingOrgs = organizations.filter(org => org.id !== deletedOrgId);
+        if (remainingOrgs.length > 0) {
+          setCurrentOrganizationId(remainingOrgs[0].id);
+        } else {
+          setCurrentOrganizationId(null);
+          // Redirect to onboarding if no organizations left
+          window.location.href = "/onboarding";
+        }
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -180,6 +192,39 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Leave organization mutation
+  const leaveOrganizationMutation = useMutation({
+    mutationFn: async (orgId: number) => {
+      await apiRequest("POST", `/api/organizations/${orgId}/leave`);
+    },
+    onSuccess: (_, leftOrgId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/organizations"] });
+      toast({
+        title: "Organization left",
+        description: "You have left the organization successfully.",
+      });
+
+      // If we're leaving the current organization, we need to select a new one
+      if (currentOrganizationId === leftOrgId) {
+        const remainingOrgs = organizations.filter(org => org.id !== leftOrgId);
+        if (remainingOrgs.length > 0) {
+          setCurrentOrganizationId(remainingOrgs[0].id);
+        } else {
+          setCurrentOrganizationId(null);
+          // Redirect to onboarding if no organizations left
+          window.location.href = "/onboarding";
+        }
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to leave organization",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <OrganizationContext.Provider
       value={{
@@ -191,6 +236,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         createOrganizationMutation,
         updateOrganizationMutation,
         deleteOrganizationMutation,
+        leaveOrganizationMutation,
         inviteMemberMutation,
         removeMemberMutation,
         organizationMembers,

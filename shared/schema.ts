@@ -53,6 +53,22 @@ export const groups = pgTable("groups", {
   createdBy: integer("created_by").notNull(),
 });
 
+// Organization tags table
+export const organizationTags = pgTable("organization_tags", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  name: text("name").notNull(),
+  color: text("color").notNull(), // hexadecimal color code
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Group tags junction table
+export const groupTags = pgTable("group_tags", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull(),
+  tagId: integer("tag_id").notNull(),
+});
+
 // Group members table
 export const groupMembers = pgTable("group_members", {
   id: serial("id").primaryKey(),
@@ -143,6 +159,17 @@ export const insertOrganizationMemberSchema = createInsertSchema(organizationMem
   role: true,
 });
 
+export const insertOrganizationTagSchema = createInsertSchema(organizationTags).pick({
+  organizationId: true,
+  name: true,
+  color: true,
+});
+
+export const insertGroupTagSchema = createInsertSchema(groupTags).pick({
+  groupId: true,
+  tagId: true,
+});
+
 export const insertGroupSchema = createInsertSchema(groups).pick({
   name: true,
   description: true,
@@ -214,6 +241,12 @@ export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 
 export type OrganizationMember = typeof organizationMembers.$inferSelect;
 export type InsertOrganizationMember = z.infer<typeof insertOrganizationMemberSchema>;
+
+export type OrganizationTag = typeof organizationTags.$inferSelect;
+export type InsertOrganizationTag = z.infer<typeof insertOrganizationTagSchema>;
+
+export type GroupTag = typeof groupTags.$inferSelect;
+export type InsertGroupTag = z.infer<typeof insertGroupTagSchema>;
 
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;

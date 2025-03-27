@@ -2,6 +2,8 @@ import {
   users, type User, type InsertUser,
   organizations, type Organization, type InsertOrganization,
   organizationMembers, type OrganizationMember, type InsertOrganizationMember,
+  organizationTags, type OrganizationTag, type InsertOrganizationTag,
+  groupTags, type GroupTag, type InsertGroupTag,
   groups, type Group, type InsertGroup,
   groupMembers, type GroupMember, type InsertGroupMember,
   prayerRequests, type PrayerRequest, type InsertPrayerRequest,
@@ -42,6 +44,19 @@ export interface IStorage {
   getOrganizationMember(organizationId: number, userId: number): Promise<OrganizationMember | undefined>;
   updateOrganizationMember(organizationId: number, userId: number, role: string): Promise<OrganizationMember | undefined>;
   removeOrganizationMember(organizationId: number, userId: number): Promise<boolean>;
+  
+  // Organization Tags
+  createOrganizationTag(tag: InsertOrganizationTag): Promise<OrganizationTag>;
+  getOrganizationTags(organizationId: number): Promise<OrganizationTag[]>;
+  getOrganizationTag(id: number): Promise<OrganizationTag | undefined>;
+  updateOrganizationTag(id: number, tagData: Partial<InsertOrganizationTag>): Promise<OrganizationTag | undefined>;
+  deleteOrganizationTag(id: number): Promise<boolean>;
+  
+  // Group Tags
+  addGroupTag(groupTag: InsertGroupTag): Promise<GroupTag>;
+  getGroupTags(groupId: number): Promise<GroupTag[]>;
+  getGroupTagsWithDetails(groupId: number): Promise<OrganizationTag[]>;
+  removeGroupTag(groupId: number, tagId: number): Promise<boolean>;
   
   // Groups
   createGroup(group: InsertGroup): Promise<Group>;
@@ -102,6 +117,8 @@ export class MemStorage implements IStorage {
   private usersMap: Map<number, User>;
   private organizationsMap: Map<number, Organization>;
   private organizationMembersMap: Map<number, OrganizationMember>;
+  private organizationTagsMap: Map<number, OrganizationTag>;
+  private groupTagsMap: Map<number, GroupTag>;
   private groupsMap: Map<number, Group>;
   private groupMembersMap: Map<number, GroupMember>;
   private prayerRequestsMap: Map<number, PrayerRequest>;
@@ -113,6 +130,8 @@ export class MemStorage implements IStorage {
   private userIdCounter: number;
   private organizationIdCounter: number;
   private organizationMemberIdCounter: number;
+  private organizationTagIdCounter: number;
+  private groupTagIdCounter: number;
   private groupIdCounter: number;
   private groupMemberIdCounter: number;
   private prayerRequestIdCounter: number;
@@ -127,6 +146,8 @@ export class MemStorage implements IStorage {
     this.usersMap = new Map();
     this.organizationsMap = new Map();
     this.organizationMembersMap = new Map();
+    this.organizationTagsMap = new Map();
+    this.groupTagsMap = new Map();
     this.groupsMap = new Map();
     this.groupMembersMap = new Map();
     this.prayerRequestsMap = new Map();
@@ -138,6 +159,8 @@ export class MemStorage implements IStorage {
     this.userIdCounter = 1;
     this.organizationIdCounter = 1;
     this.organizationMemberIdCounter = 1;
+    this.organizationTagIdCounter = 1;
+    this.groupTagIdCounter = 1;
     this.groupIdCounter = 1;
     this.groupMemberIdCounter = 1;
     this.prayerRequestIdCounter = 1;
@@ -339,6 +362,89 @@ export class MemStorage implements IStorage {
     if (!member) return false;
     
     return this.organizationMembersMap.delete(member.id);
+  }
+  
+  // Organization Tag methods
+  async createOrganizationTag(tag: InsertOrganizationTag): Promise<OrganizationTag> {
+    const id = this.organizationTagIdCounter++;
+    const organizationTag: OrganizationTag = {
+      ...tag,
+      id
+    };
+    
+    this.organizationTagsMap.set(id, organizationTag);
+    return organizationTag;
+  }
+  
+  async getOrganizationTags(organizationId: number): Promise<OrganizationTag[]> {
+    return Array.from(this.organizationTagsMap.values())
+      .filter(tag => tag.organizationId === organizationId);
+  }
+  
+  async getOrganizationTag(id: number): Promise<OrganizationTag | undefined> {
+    return this.organizationTagsMap.get(id);
+  }
+  
+  async updateOrganizationTag(id: number, tagData: Partial<InsertOrganizationTag>): Promise<OrganizationTag | undefined> {
+    const tag = await this.getOrganizationTag(id);
+    if (!tag) return undefined;
+    
+    const updatedTag = { ...tag, ...tagData };
+    this.organizationTagsMap.set(id, updatedTag);
+    return updatedTag;
+  }
+  
+  async deleteOrganizationTag(id: number): Promise<boolean> {
+    // First delete all group associations with this tag
+    const groupTags = Array.from(this.groupTagsMap.values())
+      .filter(groupTag => groupTag.tagId === id);
+    
+    for (const groupTag of groupTags) {
+      this.groupTagsMap.delete(groupTag.id);
+    }
+    
+    // Then delete the tag itself
+    return this.organizationTagsMap.delete(id);
+  }
+  
+  // Group Tag methods
+  async addGroupTag(groupTag: InsertGroupTag): Promise<GroupTag> {
+    const id = this.groupTagIdCounter++;
+    const newGroupTag: GroupTag = {
+      ...groupTag,
+      id
+    };
+    
+    this.groupTagsMap.set(id, newGroupTag);
+    return newGroupTag;
+  }
+  
+  async getGroupTags(groupId: number): Promise<GroupTag[]> {
+    return Array.from(this.groupTagsMap.values())
+      .filter(groupTag => groupTag.groupId === groupId);
+  }
+  
+  async getGroupTagsWithDetails(groupId: number): Promise<OrganizationTag[]> {
+    // Get all tag IDs associated with this group
+    const groupTagEntries = await this.getGroupTags(groupId);
+    
+    if (groupTagEntries.length === 0) {
+      return [];
+    }
+    
+    // Get the details of each tag
+    const tagIds = groupTagEntries.map(entry => entry.tagId);
+    return Array.from(this.organizationTagsMap.values())
+      .filter(tag => tagIds.includes(tag.id));
+  }
+  
+  async removeGroupTag(groupId: number, tagId: number): Promise<boolean> {
+    const groupTag = Array.from(this.groupTagsMap.values())
+      .find(gt => gt.groupId === groupId && gt.tagId === tagId);
+      
+    if (!groupTag) return false;
+    
+    return this.groupTagsMap.delete(groupTag.id);
   }
   
   // Group methods
@@ -1027,6 +1133,86 @@ export class DatabaseStorage implements IStorage {
       )
       .returning();
     
+    return result.length > 0;
+  }
+  
+  // Organization Tag methods
+  async createOrganizationTag(tag: InsertOrganizationTag): Promise<OrganizationTag> {
+    const [newTag] = await db.insert(organizationTags)
+      .values(tag)
+      .returning();
+    return newTag;
+  }
+  
+  async getOrganizationTags(organizationId: number): Promise<OrganizationTag[]> {
+    return db.select()
+      .from(organizationTags)
+      .where(eq(organizationTags.organizationId, organizationId));
+  }
+  
+  async getOrganizationTag(id: number): Promise<OrganizationTag | undefined> {
+    const [tag] = await db.select()
+      .from(organizationTags)
+      .where(eq(organizationTags.id, id));
+    return tag;
+  }
+  
+  async updateOrganizationTag(id: number, tagData: Partial<InsertOrganizationTag>): Promise<OrganizationTag | undefined> {
+    const [updatedTag] = await db.update(organizationTags)
+      .set(tagData)
+      .where(eq(organizationTags.id, id))
+      .returning();
+    return updatedTag;
+  }
+  
+  async deleteOrganizationTag(id: number): Promise<boolean> {
+    // First delete all group associations with this tag
+    await db.delete(groupTags)
+      .where(eq(groupTags.tagId, id));
+      
+    // Then delete the tag itself
+    const result = await db.delete(organizationTags)
+      .where(eq(organizationTags.id, id))
+      .returning();
+    return result.length > 0;
+  }
+  
+  // Group Tag methods
+  async addGroupTag(groupTag: InsertGroupTag): Promise<GroupTag> {
+    const [newGroupTag] = await db.insert(groupTags)
+      .values(groupTag)
+      .returning();
+    return newGroupTag;
+  }
+  
+  async getGroupTags(groupId: number): Promise<GroupTag[]> {
+    return db.select()
+      .from(groupTags)
+      .where(eq(groupTags.groupId, groupId));
+  }
+  
+  async getGroupTagsWithDetails(groupId: number): Promise<OrganizationTag[]> {
+    // Get all tag IDs associated with this group
+    const groupTagEntries = await this.getGroupTags(groupId);
+    
+    if (groupTagEntries.length === 0) {
+      return [];
+    }
+    
+    // Get the details of each tag
+    const tagIds = groupTagEntries.map(entry => entry.tagId);
+    return db.select()
+      .from(organizationTags)
+      .where(sql`${organizationTags.id} IN (${tagIds.join(',')})`);
+  }
+  
+  async removeGroupTag(groupId: number, tagId: number): Promise<boolean> {
+    const result = await db.delete(groupTags)
+      .where(and(
+        eq(groupTags.groupId, groupId),
+        eq(groupTags.tagId, tagId)
+      ))
+      .returning();
     return result.length > 0;
   }
   
