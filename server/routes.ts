@@ -10,6 +10,8 @@ import {
   insertGroupMemberSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  insertOrganizationSchema,
+  insertOrganizationMemberSchema,
 } from "@shared/schema";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -144,6 +146,44 @@ const isCommentOwner = async (req: Request, res: Response, next: NextFunction) =
   next();
 };
 
+// Middleware to check if user is a member of an organization
+const isOrganizationMember = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  const organizationId = parseInt(req.params.organizationId);
+  if (isNaN(organizationId)) {
+    return res.status(400).json({ message: "Invalid organization ID" });
+  }
+
+  const membership = await storage.getOrganizationMember(organizationId, req.user.id);
+  if (!membership) {
+    return res.status(403).json({ message: "You are not a member of this organization" });
+  }
+
+  next();
+};
+
+// Middleware to check if user is an admin of an organization
+const isOrganizationAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  const organizationId = parseInt(req.params.organizationId);
+  if (isNaN(organizationId)) {
+    return res.status(400).json({ message: "Invalid organization ID" });
+  }
+
+  const membership = await storage.getOrganizationMember(organizationId, req.user.id);
+  if (!membership || membership.role !== "admin") {
+    return res.status(403).json({ message: "You are not an admin of this organization" });
+  }
+
+  next();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
@@ -162,6 +202,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Assert user is authenticated
       assertUser(req);
+      
+      // Validate organization membership if organizationId is provided
+      if (req.body.organizationId) {
+        const organizationId = parseInt(req.body.organizationId);
+        const membership = await storage.getOrganizationMember(organizationId, req.user.id);
+        if (!membership) {
+          return res.status(403).json({ message: "You are not a member of this organization" });
+        }
+      }
       
       const parsedData = insertGroupSchema.parse({
         ...req.body,
@@ -885,6 +934,234 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const { password, ...userWithoutPassword } = updatedUser;
     res.json(userWithoutPassword);
+  });
+
+  // Organization routes
+  app.post("/api/organizations", isAuthenticated, async (req, res, next) => {
+    try {
+      assertUser(req);
+      
+      const parsedData = insertOrganizationSchema.parse({
+        ...req.body,
+        createdBy: req.user.id
+      });
+      
+      const organization = await storage.createOrganization(parsedData);
+      res.status(201).json(organization);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/organizations/user", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const organizations = await storage.getUserOrganizations(req.user.id);
+    res.json(organizations);
+  });
+
+  app.get("/api/organizations/:organizationId", isOrganizationMember, async (req, res) => {
+    const organizationId = parseInt(req.params.organizationId);
+    const organization = await storage.getOrganization(organizationId);
+    
+    if (!organization) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+    
+    res.json(organization);
+  });
+
+  app.put("/api/organizations/:organizationId", isOrganizationAdmin, async (req, res, next) => {
+    try {
+      const organizationId = parseInt(req.params.organizationId);
+      const updates = insertOrganizationSchema.partial().parse(req.body);
+      
+      const updatedOrganization = await storage.updateOrganization(organizationId, updates);
+      if (!updatedOrganization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+      
+      res.json(updatedOrganization);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/organizations/:organizationId", isOrganizationAdmin, async (req, res) => {
+    const organizationId = parseInt(req.params.organizationId);
+    
+    const success = await storage.deleteOrganization(organizationId);
+    if (!success) {
+      return res.status(404).json({ message: "Organization not found" });
+    }
+    
+    res.status(204).send();
+  });
+
+  // Organization Members
+  app.get("/api/organizations/:organizationId/members", isOrganizationMember, async (req, res) => {
+    const organizationId = parseInt(req.params.organizationId);
+    const members = await storage.getOrganizationMembers(organizationId);
+    
+    // Fetch user details for each member
+    const memberDetails = await Promise.all(
+      members.map(async (member) => {
+        const user = await storage.getUser(member.userId);
+        if (!user) return null;
+        
+        const { password, ...userWithoutPassword } = user;
+        return {
+          ...member,
+          user: userWithoutPassword
+        };
+      })
+    );
+    
+    res.json(memberDetails.filter(m => m !== null));
+  });
+
+  app.post("/api/organizations/:organizationId/members", isOrganizationAdmin, async (req, res, next) => {
+    try {
+      const organizationId = parseInt(req.params.organizationId);
+      const { userId, role } = req.body;
+      
+      // Check if user exists
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Check if already a member
+      const existingMember = await storage.getOrganizationMember(organizationId, userId);
+      if (existingMember) {
+        return res.status(400).json({ message: "User is already a member of this organization" });
+      }
+      
+      const memberData = insertOrganizationMemberSchema.parse({
+        organizationId,
+        userId,
+        role: role || "member"
+      });
+      
+      const member = await storage.addOrganizationMember(memberData);
+      
+      // Create notification for added user
+      const organization = await storage.getOrganization(organizationId);
+      if (organization) {
+        await storage.createNotification({
+          userId,
+          type: "added_to_organization",
+          message: `You were added to the organization "${organization.name}"`,
+          referenceId: organizationId
+        });
+      }
+      
+      res.status(201).json(member);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put("/api/organizations/:organizationId/members/:userId", isOrganizationAdmin, async (req, res) => {
+    const organizationId = parseInt(req.params.organizationId);
+    const userId = parseInt(req.params.userId);
+    const { role } = req.body;
+    
+    if (isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+    
+    // Prevent removing the last admin
+    if (role !== "admin") {
+      const members = await storage.getOrganizationMembers(organizationId);
+      const admins = members.filter(m => m.role === "admin");
+      
+      const targetMember = members.find(m => m.userId === userId);
+      if (targetMember?.role === "admin" && admins.length <= 1) {
+        return res.status(400).json({ 
+          message: "Cannot demote the last admin. Promote another member first."
+        });
+      }
+    }
+    
+    const updatedMember = await storage.updateOrganizationMember(organizationId, userId, role);
+    if (!updatedMember) {
+      return res.status(404).json({ message: "Organization member not found" });
+    }
+    
+    res.json(updatedMember);
+  });
+
+  app.delete("/api/organizations/:organizationId/members/:userId", isOrganizationAdmin, async (req, res) => {
+    const organizationId = parseInt(req.params.organizationId);
+    const userId = parseInt(req.params.userId);
+    assertUser(req);
+    
+    if (isNaN(userId)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+    
+    // Prevent removing the last admin
+    const members = await storage.getOrganizationMembers(organizationId);
+    const admins = members.filter(m => m.role === "admin");
+    
+    const targetMember = members.find(m => m.userId === userId);
+    if (targetMember?.role === "admin" && admins.length <= 1) {
+      return res.status(400).json({ 
+        message: "Cannot remove the last admin. Promote another member first."
+      });
+    }
+    
+    // Prevent removing self if last admin
+    if (userId === req.user.id && targetMember?.role === "admin" && admins.length <= 1) {
+      return res.status(400).json({ 
+        message: "You are the last admin. Promote another member first."
+      });
+    }
+    
+    const success = await storage.removeOrganizationMember(organizationId, userId);
+    if (!success) {
+      return res.status(404).json({ message: "Organization member not found" });
+    }
+    
+    res.status(204).send();
+  });
+
+  // Organization Groups
+  app.get("/api/organizations/:organizationId/groups", isOrganizationMember, async (req, res) => {
+    const organizationId = parseInt(req.params.organizationId);
+    const groups = await storage.getGroupsByOrganization(organizationId);
+    res.json(groups);
+  });
+
+  // Self-leave an organization
+  app.post("/api/organizations/:organizationId/leave", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const organizationId = parseInt(req.params.organizationId);
+    
+    // Check if user is a member
+    const membership = await storage.getOrganizationMember(organizationId, req.user.id);
+    if (!membership) {
+      return res.status(400).json({ message: "You are not a member of this organization" });
+    }
+    
+    // Check if trying to leave as the last admin
+    if (membership.role === "admin") {
+      const members = await storage.getOrganizationMembers(organizationId);
+      const admins = members.filter(m => m.role === "admin");
+      
+      if (admins.length <= 1) {
+        return res.status(400).json({ 
+          message: "You are the last admin. Promote another member first."
+        });
+      }
+    }
+    
+    const success = await storage.removeOrganizationMember(organizationId, req.user.id);
+    if (!success) {
+      return res.status(500).json({ message: "Failed to leave organization" });
+    }
+    
+    res.status(204).send();
   });
 
   // Push notification routes

@@ -1,5 +1,7 @@
 import { 
   users, type User, type InsertUser,
+  organizations, type Organization, type InsertOrganization,
+  organizationMembers, type OrganizationMember, type InsertOrganizationMember,
   groups, type Group, type InsertGroup,
   groupMembers, type GroupMember, type InsertGroupMember,
   prayerRequests, type PrayerRequest, type InsertPrayerRequest,
@@ -27,11 +29,26 @@ export interface IStorage {
   updateUser(id: number, userData: Partial<User>): Promise<User | undefined>;
   updateUserRole(id: number, role: string): Promise<User | undefined>;
   
+  // Organizations
+  createOrganization(organization: InsertOrganization): Promise<Organization>;
+  getOrganization(id: number): Promise<Organization | undefined>;
+  getUserOrganizations(userId: number): Promise<Organization[]>;
+  updateOrganization(id: number, organization: Partial<InsertOrganization>): Promise<Organization | undefined>;
+  deleteOrganization(id: number): Promise<boolean>;
+  
+  // Organization Members
+  addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
+  getOrganizationMembers(organizationId: number): Promise<OrganizationMember[]>;
+  getOrganizationMember(organizationId: number, userId: number): Promise<OrganizationMember | undefined>;
+  updateOrganizationMember(organizationId: number, userId: number, role: string): Promise<OrganizationMember | undefined>;
+  removeOrganizationMember(organizationId: number, userId: number): Promise<boolean>;
+  
   // Groups
   createGroup(group: InsertGroup): Promise<Group>;
   getGroup(id: number): Promise<Group | undefined>;
   getGroups(): Promise<Group[]>;
   getGroupsByCategory(category: string): Promise<Group[]>;
+  getGroupsByOrganization(organizationId: number): Promise<Group[]>;
   getUserGroups(userId: number): Promise<Group[]>;
   updateGroup(id: number, group: Partial<InsertGroup>): Promise<Group | undefined>;
   deleteGroup(id: number): Promise<boolean>;
@@ -83,6 +100,8 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private usersMap: Map<number, User>;
+  private organizationsMap: Map<number, Organization>;
+  private organizationMembersMap: Map<number, OrganizationMember>;
   private groupsMap: Map<number, Group>;
   private groupMembersMap: Map<number, GroupMember>;
   private prayerRequestsMap: Map<number, PrayerRequest>;
@@ -92,6 +111,8 @@ export class MemStorage implements IStorage {
   private passwordResetTokensMap: Map<number, PasswordResetToken>;
   
   private userIdCounter: number;
+  private organizationIdCounter: number;
+  private organizationMemberIdCounter: number;
   private groupIdCounter: number;
   private groupMemberIdCounter: number;
   private prayerRequestIdCounter: number;
@@ -104,6 +125,8 @@ export class MemStorage implements IStorage {
 
   constructor() {
     this.usersMap = new Map();
+    this.organizationsMap = new Map();
+    this.organizationMembersMap = new Map();
     this.groupsMap = new Map();
     this.groupMembersMap = new Map();
     this.prayerRequestsMap = new Map();
@@ -113,6 +136,8 @@ export class MemStorage implements IStorage {
     this.passwordResetTokensMap = new Map();
     
     this.userIdCounter = 1;
+    this.organizationIdCounter = 1;
+    this.organizationMemberIdCounter = 1;
     this.groupIdCounter = 1;
     this.groupMemberIdCounter = 1;
     this.prayerRequestIdCounter = 1;
@@ -190,6 +215,132 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
   
+  // Organization methods
+  async createOrganization(insertOrg: InsertOrganization): Promise<Organization> {
+    const id = this.organizationIdCounter++;
+    const now = new Date();
+    const organization: Organization = {
+      ...insertOrg,
+      id,
+      createdAt: now,
+      description: insertOrg.description ?? null
+    };
+    
+    this.organizationsMap.set(id, organization);
+    
+    // Add creator as admin
+    await this.addOrganizationMember({
+      organizationId: id,
+      userId: insertOrg.createdBy,
+      role: "admin"
+    });
+    
+    return organization;
+  }
+  
+  async getOrganization(id: number): Promise<Organization | undefined> {
+    return this.organizationsMap.get(id);
+  }
+  
+  async getUserOrganizations(userId: number): Promise<Organization[]> {
+    // Get organizations where user is a member
+    const userMemberships = Array.from(this.organizationMembersMap.values())
+      .filter(member => member.userId === userId);
+    
+    // Get organization details for each membership
+    const organizations = userMemberships
+      .map(membership => this.organizationsMap.get(membership.organizationId))
+      .filter((org): org is Organization => org !== undefined);
+    
+    return organizations;
+  }
+  
+  async updateOrganization(id: number, orgUpdates: Partial<InsertOrganization>): Promise<Organization | undefined> {
+    const organization = await this.getOrganization(id);
+    if (!organization) return undefined;
+    
+    const updatedOrg = { ...organization, ...orgUpdates };
+    this.organizationsMap.set(id, updatedOrg);
+    return updatedOrg;
+  }
+  
+  async deleteOrganization(id: number): Promise<boolean> {
+    const success = this.organizationsMap.delete(id);
+    
+    // Clean up related data
+    if (success) {
+      // Delete organization members
+      const orgMembers = Array.from(this.organizationMembersMap.values())
+        .filter(member => member.organizationId === id);
+      
+      for (const member of orgMembers) {
+        this.organizationMembersMap.delete(member.id);
+      }
+      
+      // Delete groups that belong to this organization
+      const orgGroups = Array.from(this.groupsMap.values())
+        .filter(group => group.organizationId === id);
+      
+      for (const group of orgGroups) {
+        await this.deleteGroup(group.id);
+      }
+    }
+    
+    return success;
+  }
+  
+  // Organization Member methods
+  async addOrganizationMember(insertMember: InsertOrganizationMember): Promise<OrganizationMember> {
+    const id = this.organizationMemberIdCounter++;
+    const now = new Date();
+    
+    // Validate role is one of the allowed values
+    const validRole = insertMember.role && ["admin", "member"].includes(insertMember.role)
+      ? insertMember.role as "admin" | "member"
+      : "member";
+    
+    const member: OrganizationMember = {
+      ...insertMember,
+      id,
+      joinedAt: now,
+      role: validRole
+    };
+    
+    this.organizationMembersMap.set(id, member);
+    return member;
+  }
+  
+  async getOrganizationMembers(organizationId: number): Promise<OrganizationMember[]> {
+    return Array.from(this.organizationMembersMap.values())
+      .filter(member => member.organizationId === organizationId);
+  }
+  
+  async getOrganizationMember(organizationId: number, userId: number): Promise<OrganizationMember | undefined> {
+    return Array.from(this.organizationMembersMap.values())
+      .find(member => member.organizationId === organizationId && member.userId === userId);
+  }
+  
+  async updateOrganizationMember(organizationId: number, userId: number, role: string): Promise<OrganizationMember | undefined> {
+    const member = await this.getOrganizationMember(organizationId, userId);
+    if (!member) return undefined;
+    
+    // Validate role is one of the allowed values
+    const validRole = ["admin", "member"].includes(role) 
+      ? role as "admin" | "member"
+      : "member";
+    
+    const updatedMember = { ...member, role: validRole };
+    this.organizationMembersMap.set(member.id, updatedMember);
+    return updatedMember;
+  }
+  
+  async removeOrganizationMember(organizationId: number, userId: number): Promise<boolean> {
+    const member = await this.getOrganizationMember(organizationId, userId);
+    if (!member) return false;
+    
+    return this.organizationMembersMap.delete(member.id);
+  }
+  
   // Group methods
   async createGroup(insertGroup: InsertGroup): Promise<Group> {
     const id = this.groupIdCounter++;
@@ -227,6 +378,11 @@ export class MemStorage implements IStorage {
   async getGroupsByCategory(category: string): Promise<Group[]> {
     return Array.from(this.groupsMap.values())
       .filter(group => group.category === category);
+  }
+  
+  async getGroupsByOrganization(organizationId: number): Promise<Group[]> {
+    return Array.from(this.groupsMap.values())
+      .filter(group => group.organizationId === organizationId);
   }
   
   async getUserGroups(userId: number): Promise<Group[]> {
@@ -729,6 +885,151 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
+  // Organization methods
+  async createOrganization(insertOrg: InsertOrganization): Promise<Organization> {
+    const result = await db.insert(organizations)
+      .values({
+        name: insertOrg.name,
+        description: insertOrg.description,
+        createdBy: insertOrg.createdBy,
+      })
+      .returning();
+    
+    const org = result[0];
+    
+    // Add creator as admin
+    await this.addOrganizationMember({
+      organizationId: org.id,
+      userId: org.createdBy,
+      role: "admin"
+    });
+    
+    return org;
+  }
+  
+  async getOrganization(id: number): Promise<Organization | undefined> {
+    const result = await db.select().from(organizations).where(eq(organizations.id, id));
+    return result[0];
+  }
+  
+  async getUserOrganizations(userId: number): Promise<Organization[]> {
+    // Get organization memberships for the user
+    const memberships = await db.select()
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userId, userId));
+    
+    if (memberships.length === 0) {
+      return [];
+    }
+    
+    // Get organizations for these memberships
+    const orgIds = memberships.map(m => m.organizationId);
+    return await db.select()
+      .from(organizations)
+      .where(sql`${organizations.id} IN (${orgIds.join(', ')})`);
+  }
+  
+  async updateOrganization(id: number, orgUpdates: Partial<InsertOrganization>): Promise<Organization | undefined> {
+    const result = await db.update(organizations)
+      .set(orgUpdates)
+      .where(eq(organizations.id, id))
+      .returning();
+    
+    return result[0];
+  }
+  
+  async deleteOrganization(id: number): Promise<boolean> {
+    // Delete organization members
+    await db.delete(organizationMembers)
+      .where(eq(organizationMembers.organizationId, id));
+    
+    // Find groups in this organization
+    const orgGroups = await db.select()
+      .from(groups)
+      .where(eq(groups.organizationId, id));
+    
+    // Delete each group
+    for (const group of orgGroups) {
+      await this.deleteGroup(group.id);
+    }
+    
+    // Delete the organization
+    const result = await db.delete(organizations)
+      .where(eq(organizations.id, id))
+      .returning();
+    
+    return result.length > 0;
+  }
+  
+  // Organization Member methods
+  async addOrganizationMember(insertMember: InsertOrganizationMember): Promise<OrganizationMember> {
+    // Validate role is one of the allowed values
+    const validRole = insertMember.role && ["admin", "member"].includes(insertMember.role)
+      ? insertMember.role as "admin" | "member"
+      : "member";
+    
+    const result = await db.insert(organizationMembers)
+      .values({
+        organizationId: insertMember.organizationId,
+        userId: insertMember.userId,
+        role: validRole,
+      })
+      .returning();
+    
+    return result[0];
+  }
+  
+  async getOrganizationMembers(organizationId: number): Promise<OrganizationMember[]> {
+    return await db.select()
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, organizationId));
+  }
+  
+  async getOrganizationMember(organizationId: number, userId: number): Promise<OrganizationMember | undefined> {
+    const result = await db.select()
+      .from(organizationMembers)
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, userId)
+        )
+      );
+    
+    return result[0];
+  }
+  
+  async updateOrganizationMember(organizationId: number, userId: number, role: string): Promise<OrganizationMember | undefined> {
+    // Validate role is one of the allowed values
+    const validRole = ["admin", "member"].includes(role) 
+      ? role as "admin" | "member"
+      : "member";
+    
+    const result = await db.update(organizationMembers)
+      .set({ role: validRole })
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, userId)
+        )
+      )
+      .returning();
+    
+    return result[0];
+  }
+  
+  async removeOrganizationMember(organizationId: number, userId: number): Promise<boolean> {
+    const result = await db.delete(organizationMembers)
+      .where(
+        and(
+          eq(organizationMembers.organizationId, organizationId),
+          eq(organizationMembers.userId, userId)
+        )
+      )
+      .returning();
+    
+    return result.length > 0;
+  }
+  
   // Group methods
   async createGroup(insertGroup: InsertGroup): Promise<Group> {
     const now = new Date();
@@ -769,6 +1070,12 @@ export class DatabaseStorage implements IStorage {
       .where(sql`${groups.category} = ${category}`);
   }
   
+  async getGroupsByOrganization(organizationId: number): Promise<Group[]> {
+    return await db.select()
+      .from(groups)
+      .where(eq(groups.organizationId, organizationId));
+  }
+  
   async getUserGroups(userId: number): Promise<Group[]> {
     // Join group_members and groups tables to get user's groups
     const result = await db
@@ -778,6 +1085,7 @@ export class DatabaseStorage implements IStorage {
         description: groups.description,
         createdAt: groups.createdAt,
         createdBy: groups.createdBy,
+        organizationId: groups.organizationId,
         privacy: groups.privacy,
         category: groups.category,
         leaderRotation: groups.leaderRotation

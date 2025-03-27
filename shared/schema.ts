@@ -22,11 +22,30 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Organizations table
+export const organizations = pgTable("organizations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: integer("created_by").notNull(),
+});
+
+// Organization members table
+export const organizationMembers = pgTable("organization_members", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  userId: integer("user_id").notNull(),
+  role: text("role", { enum: ["member", "admin"] }).default("member").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+});
+
 // Groups table
 export const groups = pgTable("groups", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
+  organizationId: integer("organization_id").notNull(),
   category: text("category", { enum: ["health", "career", "family", "relationship", "other"] }).default("other").notNull(),
   privacy: text("privacy", { enum: ["open", "request", "invite"] }).default("open").notNull(),
   leaderRotation: integer("leader_rotation").default(0), // 0 = no rotation, 30 = 30 days, etc.
@@ -72,7 +91,7 @@ export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
   type: text("type", { 
-    enum: ["new_request", "new_comment", "status_update", "added_to_group"] 
+    enum: ["new_request", "new_comment", "status_update", "added_to_group", "added_to_organization", "org_role_changed"] 
   }).notNull(),
   message: text("message").notNull(),
   read: boolean("read").default(false).notNull(),
@@ -112,9 +131,22 @@ export const insertUserSchema = createInsertSchema(users)
     email: z.string().email("Please enter a valid email address"),
   });
 
+export const insertOrganizationSchema = createInsertSchema(organizations).pick({
+  name: true,
+  description: true,
+  createdBy: true,
+});
+
+export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).pick({
+  organizationId: true,
+  userId: true,
+  role: true,
+});
+
 export const insertGroupSchema = createInsertSchema(groups).pick({
   name: true,
   description: true,
+  organizationId: true,
   category: true,
   privacy: true,
   leaderRotation: true,
@@ -176,6 +208,12 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
 export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
+export type InsertOrganizationMember = z.infer<typeof insertOrganizationMemberSchema>;
 
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
