@@ -26,7 +26,6 @@ function Router() {
     <Switch>
       {/* Routes that require both auth and organization */}
       <OrganizationProtectedRoute path="/" component={HomePage} />
-      <OrganizationProtectedRoute path="/groups" component={HomePage} />
       <OrganizationProtectedRoute path="/groups/:groupId" component={GroupDetails} />
       <OrganizationProtectedRoute path="/requests/:requestId" component={RequestDetails} />
       <OrganizationProtectedRoute path="/meetings/:meetingId" component={MeetingDetails} />

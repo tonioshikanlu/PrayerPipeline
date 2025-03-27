@@ -76,7 +76,7 @@ export default function Header() {
             </a>
             <a 
               className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
-              onClick={() => navigate("/groups")}
+              onClick={() => navigate("/")}
             >
               Groups
             </a>

@@ -48,11 +48,11 @@ export default function CreateGroupModal({
 }: CreateGroupModalProps) {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { data: userOrgs } = useOrganizations();
+  const { organizations: userOrgs } = useOrganizations();
   
   // If no organizationId is provided, use the first organization the user is a member of
   // This ensures we always have a valid organization ID for group creation
-  const activeOrgId = organizationId || (userOrgs?.length ? userOrgs[0].id : undefined);
+  const activeOrgId = organizationId || (userOrgs.length ? userOrgs[0].id : undefined);
 
   // Define our form schema type
   const createGroupSchema = insertGroupSchema.omit({ createdBy: true });

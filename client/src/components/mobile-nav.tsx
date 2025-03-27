@@ -22,7 +22,7 @@ export default function MobileNav({ active }: MobileNavProps) {
         </button>
         <button
           onClick={() => {
-            navigate("/groups");
+            navigate("/");
           }}
           className={`flex flex-col items-center justify-center py-1 ${
             active === "groups" ? "text-primary" : "text-neutral-500 hover:text-primary"
