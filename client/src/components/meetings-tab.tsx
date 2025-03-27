@@ -3,7 +3,7 @@ import { Meeting, Group } from "@shared/schema";
 import { useMeetings } from "@/hooks/use-meetings";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusIcon, CalendarDays, ChevronRight } from "lucide-react";
+import { PlusIcon, CalendarDays, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import MeetingCard from "@/components/meeting-card";
 import CreateMeetingModal from "@/components/create-meeting-modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,13 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useLocation } from "wouter";
 
 interface MeetingsTabProps {
@@ -36,8 +29,8 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [meetingToDelete, setMeetingToDelete] = useState<Meeting | null>(null);
   const [meetingsTab, setMeetingsTab] = useState<"upcoming" | "past">("upcoming");
-  const [viewAllOpen, setViewAllOpen] = useState(false);
-  const [viewAllType, setViewAllType] = useState<"upcoming" | "past">("upcoming");
+  const [expandedUpcoming, setExpandedUpcoming] = useState(false);
+  const [expandedPast, setExpandedPast] = useState(false);
   
   const { 
     meetings,
@@ -89,10 +82,13 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
     navigate(`/meetings/${meeting.id}/notes`);
   };
   
-  // Handle opening the view all meetings modal
-  const handleViewAllMeetings = (type: "upcoming" | "past") => {
-    setViewAllType(type);
-    setViewAllOpen(true);
+  // Handle toggling the expanded view for meetings
+  const handleToggleExpand = (type: "upcoming" | "past") => {
+    if (type === "upcoming") {
+      setExpandedUpcoming(!expandedUpcoming);
+    } else {
+      setExpandedPast(!expandedPast);
+    }
   };
   
   return (
@@ -158,10 +154,30 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
                       variant="ghost" 
                       size="sm" 
                       className="text-primary hover:text-primary hover:bg-primary/5" 
-                      onClick={() => handleViewAllMeetings("upcoming")}
+                      onClick={() => handleToggleExpand("upcoming")}
                     >
-                      View all {allUpcomingMeetings.length} upcoming meetings <ChevronRight className="h-4 w-4 ml-1" />
+                      {expandedUpcoming ? (
+                        <>Collapse <ChevronUp className="h-4 w-4 ml-1" /></>
+                      ) : (
+                        <>View all {allUpcomingMeetings.length} upcoming meetings <ChevronDown className="h-4 w-4 ml-1" /></>
+                      )}
                     </Button>
+                  </div>
+                )}
+                
+                {/* Expanded upcoming meetings section */}
+                {expandedUpcoming && hasMoreUpcoming && (
+                  <div className="col-span-full mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {allUpcomingMeetings.slice(3).map((meeting) => (
+                      <MeetingCard
+                        key={meeting.id}
+                        meeting={meeting}
+                        isLeader={isLeader}
+                        onEdit={handleEditMeeting}
+                        onDelete={handleDeleteMeeting}
+                        onViewNotes={handleViewNotes}
+                      />
+                    ))}
                   </div>
                 )}
               </>
@@ -205,10 +221,29 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
                       variant="ghost" 
                       size="sm" 
                       className="text-primary hover:text-primary hover:bg-primary/5" 
-                      onClick={() => handleViewAllMeetings("past")}
+                      onClick={() => handleToggleExpand("past")}
                     >
-                      View all {allPastMeetings.length} past meetings <ChevronRight className="h-4 w-4 ml-1" />
+                      {expandedPast ? (
+                        <>Collapse <ChevronUp className="h-4 w-4 ml-1" /></>
+                      ) : (
+                        <>View all {allPastMeetings.length} past meetings <ChevronDown className="h-4 w-4 ml-1" /></>
+                      )}
                     </Button>
+                  </div>
+                )}
+                
+                {/* Expanded past meetings section */}
+                {expandedPast && hasMorePast && (
+                  <div className="col-span-full mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {allPastMeetings.slice(3).map((meeting) => (
+                      <MeetingCard
+                        key={meeting.id}
+                        meeting={meeting}
+                        isLeader={isLeader}
+                        onDelete={handleDeleteMeeting}
+                        onViewNotes={handleViewNotes}
+                      />
+                    ))}
                   </div>
                 )}
               </>
@@ -261,57 +296,7 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* View All Meetings Modal */}
-      <Dialog open={viewAllOpen} onOpenChange={setViewAllOpen}>
-        <DialogContent className="sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>
-              {viewAllType === "upcoming" ? "All Upcoming Meetings" : "All Past Meetings"}
-            </DialogTitle>
-            <DialogDescription>
-              {viewAllType === "upcoming" 
-                ? `Showing all ${allUpcomingMeetings.length} upcoming meetings` 
-                : `Showing all ${allPastMeetings.length} past meetings`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto p-1">
-            {viewAllType === "upcoming" ? (
-              allUpcomingMeetings.length > 0 ? (
-                allUpcomingMeetings.map((meeting) => (
-                  <MeetingCard
-                    key={meeting.id}
-                    meeting={meeting}
-                    isLeader={isLeader}
-                    onEdit={handleEditMeeting}
-                    onDelete={handleDeleteMeeting}
-                    onViewNotes={handleViewNotes}
-                  />
-                ))
-              ) : (
-                <div className="col-span-full text-center py-8">
-                  <p>No upcoming meetings found.</p>
-                </div>
-              )
-            ) : (
-              allPastMeetings.length > 0 ? (
-                allPastMeetings.map((meeting) => (
-                  <MeetingCard
-                    key={meeting.id}
-                    meeting={meeting}
-                    isLeader={isLeader}
-                    onDelete={handleDeleteMeeting}
-                    onViewNotes={handleViewNotes}
-                  />
-                ))
-              ) : (
-                <div className="col-span-full text-center py-8">
-                  <p>No past meetings found.</p>
-                </div>
-              )
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 }
