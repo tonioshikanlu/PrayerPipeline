@@ -6,6 +6,7 @@ import Header from "@/components/header";
 import MobileNav from "@/components/mobile-nav";
 import PrayerCard from "@/components/prayer-card";
 import CreateRequestModal from "@/components/create-request-modal";
+import MeetingsTab from "@/components/meetings-tab";
 import { ArrowLeft, PlusIcon, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -291,6 +292,12 @@ export default function GroupDetails() {
                 Prayer Requests
               </TabsTrigger>
               <TabsTrigger
+                value="meetings"
+                className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary"
+              >
+                Meetings
+              </TabsTrigger>
+              <TabsTrigger
                 value="members"
                 className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary"
               >
@@ -347,6 +354,10 @@ export default function GroupDetails() {
                   </div>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="meetings" className="mt-0">
+              {group && <MeetingsTab group={group} isLeader={!!isLeader} />}
             </TabsContent>
 
             <TabsContent value="members" className="mt-0">
