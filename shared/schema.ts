@@ -10,6 +10,9 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   role: text("role", { enum: ["regular", "leader", "admin"] }).default("regular").notNull(),
+  phone: text("phone"),
+  avatar: text("avatar"),
+  bio: text("bio"),
 });
 
 // Password reset tokens table
@@ -181,9 +184,15 @@ export const insertUserSchema = createInsertSchema(users)
     name: true,
     email: true,
     role: true,
+    phone: true,
+    avatar: true,
+    bio: true,
   })
   .extend({
     email: z.string().email("Please enter a valid email address"),
+    phone: z.string().optional(),
+    avatar: z.string().optional(),
+    bio: z.string().optional(),
   });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).pick({

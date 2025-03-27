@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -11,7 +11,7 @@ import MobileNav from "@/components/mobile-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { UserCircle, Bell, BookOpen, User, Settings as SettingsIcon } from "lucide-react";
+import { UserCircle, Bell, BookOpen, User, Settings as SettingsIcon, Camera } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -33,6 +33,8 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   // Fetch user's recent prayer requests
   const { data: recentRequests = [], isLoading: isLoadingRequests } = useQuery<any[]>({
@@ -48,7 +50,9 @@ export default function ProfilePage() {
   const profileSchema = z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Please enter a valid email address"),
+    phone: z.string().optional(),
     bio: z.string().optional(),
+    avatar: z.string().optional(),
   });
 
   type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -58,7 +62,9 @@ export default function ProfilePage() {
     defaultValues: {
       name: user?.name || "",
       email: user?.email || "",
-      bio: "",  // User schema doesn't have bio field yet
+      phone: user?.phone || "",
+      bio: user?.bio || "",
+      avatar: user?.avatar || "",
     },
   });
 
@@ -83,7 +89,29 @@ export default function ProfilePage() {
     },
   });
 
+  // Handle avatar file change
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setAvatarPreview(result);
+      profileForm.setValue("avatar", result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Trigger file input click
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
   const onSubmitProfile = (data: ProfileFormValues) => {
+    if (avatarPreview) {
+      data.avatar = avatarPreview;
+    }
     updateProfileMutation.mutate(data);
   };
 
@@ -110,9 +138,13 @@ export default function ProfilePage() {
               <Card>
                 <CardHeader className="pb-2 flex flex-col items-center">
                   <Avatar className="h-24 w-24 mb-2">
-                    <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                      {getInitials()}
-                    </AvatarFallback>
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+                        {getInitials()}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                   <CardTitle className="text-xl mt-2">{user?.name || user?.username}</CardTitle>
                   <CardDescription>{user?.email}</CardDescription>
@@ -179,6 +211,39 @@ export default function ProfilePage() {
                   <CardContent>
                     <Form {...profileForm}>
                       <form onSubmit={profileForm.handleSubmit(onSubmitProfile)} className="space-y-6">
+                        <div className="flex flex-col items-center mb-6">
+                          <FormLabel className="mb-2">Profile Picture</FormLabel>
+                          <div 
+                            className="relative cursor-pointer group"
+                            onClick={handleAvatarClick}
+                          >
+                            <Avatar className="h-32 w-32 border-2 border-border">
+                              {avatarPreview ? (
+                                <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                              ) : user?.avatar ? (
+                                <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                                  {getInitials()}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Camera className="h-8 w-8 text-white" />
+                            </div>
+                          </div>
+                          <FormDescription className="mt-2 text-center">
+                            Click to upload or change your profile picture
+                          </FormDescription>
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                          />
+                        </div>
+
                         <FormField
                           control={profileForm.control}
                           name="name"
@@ -201,6 +266,25 @@ export default function ProfilePage() {
                               <FormLabel>Email</FormLabel>
                               <FormControl>
                                 <Input placeholder="Your email" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={profileForm.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone (optional)</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="tel"
+                                  inputMode="tel"
+                                  placeholder="(123) 456-7890" 
+                                  {...field} 
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>

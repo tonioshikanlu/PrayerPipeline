@@ -45,9 +45,12 @@ export default function AuthPage() {
       username: "",
       name: "",
       email: "",
+      phone: "",
       password: "",
       confirmPassword: "",
       role: "regular",
+      avatar: "",
+      bio: "",
     },
     mode: "onChange", // Validate on change for better user feedback
   });
@@ -240,6 +243,27 @@ export default function AuthPage() {
                               placeholder="john@example.com"
                               className="w-full px-4 py-2 border-neutral-300 focus:border-primary"
                               autoComplete="email"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={registerForm.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone (optional)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="tel"
+                              inputMode="tel"
+                              placeholder="(123) 456-7890"
+                              className="w-full px-4 py-2 border-neutral-300 focus:border-primary"
+                              autoComplete="tel"
                               {...field}
                             />
                           </FormControl>

@@ -213,9 +213,15 @@ export class MemStorage implements IStorage {
     
     // Ensure all required fields have values
     const user: User = { 
-      ...insertUser, 
       id,
-      role: validRole
+      username: insertUser.username,
+      password: insertUser.password,
+      name: insertUser.name,
+      email: insertUser.email,
+      role: validRole,
+      phone: insertUser.phone || null,
+      avatar: insertUser.avatar || null,
+      bio: insertUser.bio || null
     };
     this.usersMap.set(id, user);
     return user;
@@ -1112,8 +1118,14 @@ export class DatabaseStorage implements IStorage {
       : "regular";
     
     const userToInsert = {
-      ...insertUser,
-      role: validRole
+      username: insertUser.username,
+      password: insertUser.password,
+      name: insertUser.name,
+      email: insertUser.email,
+      role: validRole,
+      phone: insertUser.phone || null,
+      avatar: insertUser.avatar || null,
+      bio: insertUser.bio || null
     };
     
     const result = await db.insert(users).values(userToInsert).returning();
