@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/header";
+import MobileNav from "@/components/mobile-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -427,6 +428,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </main>
+      <MobileNav active="profile" />
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import { useLocation } from "wouter";
-import { Home, Users, Heart, User, Search } from "lucide-react";
+import { Home, Users, Heart, User, Search, Building2 } from "lucide-react";
 
 type MobileNavProps = {
-  active: "home" | "groups" | "explore" | "prayers" | "profile";
+  active: "home" | "groups" | "explore" | "organizations" | "profile";
 };
 
 export default function MobileNav({ active }: MobileNavProps) {
@@ -22,7 +22,6 @@ export default function MobileNav({ active }: MobileNavProps) {
         </button>
         <button
           onClick={() => {
-            // Navigate to the first group if available or show all groups
             navigate("/groups");
           }}
           className={`flex flex-col items-center justify-center py-1 ${
@@ -34,7 +33,6 @@ export default function MobileNav({ active }: MobileNavProps) {
         </button>
         <button
           onClick={() => {
-            // Navigate to explore groups page
             navigate("/explore");
           }}
           className={`flex flex-col items-center justify-center py-1 ${
@@ -46,19 +44,17 @@ export default function MobileNav({ active }: MobileNavProps) {
         </button>
         <button
           onClick={() => {
-            // Navigate to prayer requests
-            navigate("/prayers");
+            navigate("/organizations");
           }}
           className={`flex flex-col items-center justify-center py-1 ${
-            active === "prayers" ? "text-primary" : "text-neutral-500 hover:text-primary"
+            active === "organizations" ? "text-primary" : "text-neutral-500 hover:text-primary"
           }`}
         >
-          <Heart className="h-6 w-6" />
-          <span className="text-xs mt-1">Prayers</span>
+          <Building2 className="h-6 w-6" />
+          <span className="text-xs mt-1">Orgs</span>
         </button>
         <button
           onClick={() => {
-            // Navigate to profile
             navigate("/profile");
           }}
           className={`flex flex-col items-center justify-center py-1 ${

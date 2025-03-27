@@ -76,15 +76,27 @@ export default function Header() {
             </a>
             <a 
               className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
+              onClick={() => navigate("/groups")}
+            >
+              Groups
+            </a>
+            <a 
+              className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
               onClick={() => navigate("/explore")}
             >
-              Explore Groups
+              Explore
             </a>
             <a 
               className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
               onClick={() => navigate("/organizations")}
             >
               Organizations
+            </a>
+            <a 
+              className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
+              onClick={() => navigate("/profile")}
+            >
+              Profile
             </a>
           </nav>
         </div>

@@ -37,7 +37,7 @@ export default function ExploreGroupsPage() {
         </div>
       </main>
 
-      <MobileNav active="groups" />
+      <MobileNav active="explore" />
       <CreateGroupModal open={createGroupOpen} setOpen={setCreateGroupOpen} />
     </div>
   );
