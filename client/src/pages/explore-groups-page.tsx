@@ -5,9 +5,11 @@ import CreateGroupModal from "@/components/create-group-modal";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
+import { useOrganizations } from "@/hooks/use-organizations";
 
 export default function ExploreGroupsPage() {
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const { currentOrganization } = useOrganizations();
 
   return (
     <div>
@@ -33,7 +35,7 @@ export default function ExploreGroupsPage() {
             </Button>
           </div>
 
-          <CategoryGroups />
+          <CategoryGroups currentOrganizationId={currentOrganization?.id} />
         </div>
       </main>
 

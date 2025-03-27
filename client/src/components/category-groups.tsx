@@ -10,7 +10,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import GroupCard from "@/components/group-card";
 
-export default function CategoryGroups() {
+interface CategoryGroupsProps {
+  currentOrganizationId?: number;
+}
+
+export default function CategoryGroups({ currentOrganizationId }: CategoryGroupsProps) {
   const [_, navigate] = useLocation();
   const [activeCategory, setActiveCategory] = useState("all");
   
@@ -19,7 +23,16 @@ export default function CategoryGroups() {
     data: allGroups,
     isLoading: isLoadingAllGroups,
   } = useQuery({
-    queryKey: ["/api/groups"],
+    queryKey: ["/api/groups", currentOrganizationId],
+    queryFn: () => {
+      if (!currentOrganizationId) return Promise.resolve([]);
+      return fetch(`/api/groups?organizationId=${currentOrganizationId}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch groups');
+          return res.json();
+        });
+    },
+    enabled: !!currentOrganizationId,
   });
 
   // Fetch groups by category when a category is selected
@@ -27,8 +40,16 @@ export default function CategoryGroups() {
     data: categoryGroups,
     isLoading: isLoadingCategoryGroups,
   } = useQuery({
-    queryKey: ["/api/groups/category", activeCategory],
-    enabled: activeCategory !== "all",
+    queryKey: ["/api/groups/category", activeCategory, currentOrganizationId],
+    queryFn: () => {
+      if (!currentOrganizationId) return Promise.resolve([]);
+      return fetch(`/api/groups/category/${activeCategory}?organizationId=${currentOrganizationId}`)
+        .then(res => {
+          if (!res.ok) throw new Error(`Failed to fetch ${activeCategory} groups`);
+          return res.json();
+        });
+    },
+    enabled: activeCategory !== "all" && !!currentOrganizationId,
   });
 
   const displayGroups = activeCategory === "all" ? allGroups : categoryGroups;

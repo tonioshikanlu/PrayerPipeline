@@ -278,7 +278,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/groups", isAuthenticated, async (req, res) => {
     assertUser(req);
-    // Get the user's organizations
+    const organizationId = req.query.organizationId ? parseInt(req.query.organizationId as string) : null;
+    
+    // If organizationId is provided, filter groups by that organization
+    if (organizationId) {
+      // Verify the user belongs to this organization
+      const userOrganizations = await storage.getUserOrganizations(req.user.id);
+      const userOrganizationIds = userOrganizations.map(org => org.id);
+      
+      if (!userOrganizationIds.includes(organizationId)) {
+        return res.status(403).json({ message: "You don't have access to this organization" });
+      }
+      
+      // Get all groups and filter by organization
+      const allGroups = await storage.getGroups();
+      const organizationGroups = allGroups.filter(group => group.organizationId === organizationId);
+      return res.json(organizationGroups);
+    }
+    
+    // If no organizationId is provided, get groups from all user's organizations
     const userOrganizations = await storage.getUserOrganizations(req.user.id);
     
     if (userOrganizations.length === 0) {
@@ -298,9 +316,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/groups/category/:category", isAuthenticated, async (req, res) => {
+    assertUser(req);
     const { category } = req.params;
+    const organizationId = req.query.organizationId ? parseInt(req.query.organizationId as string) : null;
+    
+    // If organizationId is provided, filter groups by organization
+    if (organizationId) {
+      const groups = await storage.getGroupsByCategory(category);
+      const filteredGroups = groups.filter(group => group.organizationId === organizationId);
+      return res.json(filteredGroups);
+    }
+    
+    // Otherwise, get groups from all organizations the user belongs to
+    const userOrganizations = await storage.getUserOrganizations(req.user.id);
+    if (userOrganizations.length === 0) {
+      return res.json([]);
+    }
+    
+    const organizationIds = userOrganizations.map(org => org.id);
     const groups = await storage.getGroupsByCategory(category);
-    res.json(groups);
+    const filteredGroups = groups.filter(group => 
+      organizationIds.includes(group.organizationId)
+    );
+    
+    res.json(filteredGroups);
   });
 
   app.get("/api/groups/user", isAuthenticated, async (req, res) => {
