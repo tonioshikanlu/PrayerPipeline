@@ -9,9 +9,9 @@ import {
   Button,
   Portal,
   Dialog,
-  ActivityIndicator,
   useTheme,
   Card,
+  HelperText,
 } from 'react-native-paper';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/api/queryClient';
@@ -20,13 +20,18 @@ export default function ForgotPasswordScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const theme = useTheme();
   
+  // Form state
   const [email, setEmail] = useState('');
+  
+  // Success state
   const [successDialogVisible, setSuccessDialogVisible] = useState(false);
+  
+  // Error handling
   const [errorDialogVisible, setErrorDialogVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Password reset request mutation
-  const resetPasswordMutation = useMutation({
+  // Request password reset mutation
+  const requestResetMutation = useMutation({
     mutationFn: async (email: string) => {
       const res = await apiRequest('POST', '/api/auth/forgot-password', { email });
       if (!res.ok) {
@@ -44,19 +49,31 @@ export default function ForgotPasswordScreen() {
     },
   });
 
-  const handleResetRequest = () => {
-    if (email.trim()) {
-      resetPasswordMutation.mutate(email.trim());
-    } else {
-      setErrorMessage('Email address is required');
-      setErrorDialogVisible(true);
-    }
+  const validateEmail = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) return "Email is required";
+    if (!emailRegex.test(email)) return "Please enter a valid email address";
+    return "";
   };
 
-  const handleSuccessClose = () => {
+  const handleRequestReset = () => {
+    const emailError = validateEmail();
+    if (emailError) {
+      setErrorMessage(emailError);
+      setErrorDialogVisible(true);
+      return;
+    }
+    
+    requestResetMutation.mutate(email);
+  };
+
+  const handleSuccessDialogClose = () => {
     setSuccessDialogVisible(false);
     navigation.navigate('Auth');
   };
+
+  const emailError = validateEmail();
+  const isFormValid = !emailError;
 
   return (
     <View style={styles.container}>
@@ -64,10 +81,10 @@ export default function ForgotPasswordScreen() {
         <View style={styles.content}>
           <View style={styles.headerContainer}>
             <Text variant="headlineMedium" style={styles.title}>
-              Reset Password
+              Reset Your Password
             </Text>
             <Text variant="bodyLarge" style={styles.subtitle}>
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your email address and we'll send you instructions to reset your password.
             </Text>
           </View>
           
@@ -85,12 +102,12 @@ export default function ForgotPasswordScreen() {
               
               <Button
                 mode="contained"
-                onPress={handleResetRequest}
+                onPress={handleRequestReset}
                 style={styles.resetButton}
-                loading={resetPasswordMutation.isPending}
-                disabled={!email.trim() || resetPasswordMutation.isPending}
+                loading={requestResetMutation.isPending}
+                disabled={!isFormValid || requestResetMutation.isPending}
               >
-                Send Reset Link
+                Send Reset Instructions
               </Button>
               
               <Button
@@ -115,15 +132,15 @@ export default function ForgotPasswordScreen() {
       
       {/* Success Dialog */}
       <Portal>
-        <Dialog visible={successDialogVisible} onDismiss={handleSuccessClose}>
-          <Dialog.Title>Email Sent</Dialog.Title>
+        <Dialog visible={successDialogVisible} onDismiss={handleSuccessDialogClose}>
+          <Dialog.Title>Check Your Email</Dialog.Title>
           <Dialog.Content>
             <Text variant="bodyMedium">
-              We've sent a password reset link to {email}. Please check your email and follow the instructions to reset your password.
+              We've sent password reset instructions to your email address. Please check your inbox and follow the link to reset your password.
             </Text>
           </Dialog.Content>
           <Dialog.Actions>
-            <Button onPress={handleSuccessClose}>OK</Button>
+            <Button onPress={handleSuccessDialogClose}>OK</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
