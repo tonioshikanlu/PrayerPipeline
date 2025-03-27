@@ -15,12 +15,7 @@ import {
   Sun,
   Palette,
 } from "lucide-react";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+
 import {
   Form,
   FormControl,
@@ -149,48 +144,48 @@ export default function SettingsPage() {
             <div className="w-full md:w-1/4">
               <Card>
                 <CardContent className="p-4">
-                  <TabsList className="flex flex-col w-full h-auto bg-transparent items-stretch">
-                    <TabsTrigger
-                      value="profile"
+                  <div className="flex flex-col w-full h-auto items-stretch gap-1">
+                    <Button
+                      variant={activeTab === "profile" ? "secondary" : "ghost"}
                       onClick={() => setActiveTab("profile")}
-                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "profile" ? "bg-muted" : ""}`}
+                      className="justify-start px-3 py-2 h-auto font-normal"
                     >
                       <User className="h-4 w-4 mr-2" />
                       Profile
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="account"
+                    </Button>
+                    <Button
+                      variant={activeTab === "account" ? "secondary" : "ghost"}
                       onClick={() => setActiveTab("account")}
-                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "account" ? "bg-muted" : ""}`}
+                      className="justify-start px-3 py-2 h-auto font-normal"
                     >
                       <Lock className="h-4 w-4 mr-2" />
                       Account
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="appearance"
+                    </Button>
+                    <Button
+                      variant={activeTab === "appearance" ? "secondary" : "ghost"}
                       onClick={() => setActiveTab("appearance")}
-                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "appearance" ? "bg-muted" : ""}`}
+                      className="justify-start px-3 py-2 h-auto font-normal"
                     >
                       <Palette className="h-4 w-4 mr-2" />
                       Appearance
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="notifications"
+                    </Button>
+                    <Button
+                      variant={activeTab === "notifications" ? "secondary" : "ghost"}
                       onClick={() => setActiveTab("notifications")}
-                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "notifications" ? "bg-muted" : ""}`}
+                      className="justify-start px-3 py-2 h-auto font-normal"
                     >
                       <Bell className="h-4 w-4 mr-2" />
                       Notifications
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="privacy"
+                    </Button>
+                    <Button
+                      variant={activeTab === "privacy" ? "secondary" : "ghost"}
                       onClick={() => setActiveTab("privacy")}
-                      className={`justify-start px-3 py-2 mb-1 ${activeTab === "privacy" ? "bg-muted" : ""}`}
+                      className="justify-start px-3 py-2 h-auto font-normal"
                     >
                       <Shield className="h-4 w-4 mr-2" />
                       Privacy
-                    </TabsTrigger>
-                  </TabsList>
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>

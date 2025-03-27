@@ -31,9 +31,15 @@ async function comparePasswords(supplied: string, stored: string) {
 // Middleware to check if user is authenticated
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   if (req.isAuthenticated()) {
+    // If this passes, req.user is guaranteed to be defined
     return next();
   }
   res.status(401).json({ message: "Not authenticated" });
+};
+
+// TypeScript type guard to ensure req.user is defined
+const assertUser = (req: Request): asserts req is Request & { user: Express.User } => {
+  if (!req.user) throw new Error("User is not authenticated");
 };
 
 // Middleware to check if user has a specific role
@@ -151,6 +157,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Groups
   app.post("/api/groups", isAuthenticated, async (req, res, next) => {
     try {
+      // Assert user is authenticated
+      assertUser(req);
+      
       const parsedData = insertGroupSchema.parse({
         ...req.body,
         createdBy: req.user.id

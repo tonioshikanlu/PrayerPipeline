@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Header from "@/components/header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -119,48 +118,48 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-1">
-                    <TabsList className="flex flex-col w-full bg-transparent items-stretch gap-1">
-                      <TabsTrigger
-                        value="overview"
+                    <div className="flex flex-col w-full bg-transparent items-stretch gap-1">
+                      <Button
+                        variant={activeTab === "overview" ? "secondary" : "ghost"}
                         onClick={() => setActiveTab("overview")}
-                        className={`justify-start px-3 py-2 ${activeTab === "overview" ? "bg-muted" : ""}`}
+                        className="justify-start px-3 py-2 h-auto font-normal"
                       >
                         <User className="h-4 w-4 mr-2" />
                         Profile Overview
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="prayers"
+                      </Button>
+                      <Button
+                        variant={activeTab === "prayers" ? "secondary" : "ghost"}
                         onClick={() => setActiveTab("prayers")}
-                        className={`justify-start px-3 py-2 ${activeTab === "prayers" ? "bg-muted" : ""}`}
+                        className="justify-start px-3 py-2 h-auto font-normal"
                       >
                         <BookOpen className="h-4 w-4 mr-2" />
                         My Prayer Requests
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="groups"
+                      </Button>
+                      <Button
+                        variant={activeTab === "groups" ? "secondary" : "ghost"}
                         onClick={() => setActiveTab("groups")}
-                        className={`justify-start px-3 py-2 ${activeTab === "groups" ? "bg-muted" : ""}`}
+                        className="justify-start px-3 py-2 h-auto font-normal"
                       >
                         <UserCircle className="h-4 w-4 mr-2" />
                         My Groups
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="notifications"
+                      </Button>
+                      <Button
+                        variant={activeTab === "notifications" ? "secondary" : "ghost"}
                         onClick={() => setActiveTab("notifications")}
-                        className={`justify-start px-3 py-2 ${activeTab === "notifications" ? "bg-muted" : ""}`}
+                        className="justify-start px-3 py-2 h-auto font-normal"
                       >
                         <Bell className="h-4 w-4 mr-2" />
                         Notification Settings
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="settings"
+                      </Button>
+                      <Button
+                        variant={activeTab === "settings" ? "secondary" : "ghost"}
                         onClick={() => setActiveTab("settings")}
-                        className={`justify-start px-3 py-2 ${activeTab === "settings" ? "bg-muted" : ""}`}
+                        className="justify-start px-3 py-2 h-auto font-normal"
                       >
                         <SettingsIcon className="h-4 w-4 mr-2" />
                         Account Settings
-                      </TabsTrigger>
-                    </TabsList>
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
