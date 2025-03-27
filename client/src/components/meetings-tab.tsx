@@ -39,13 +39,23 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
   
   // Sort and filter meetings
   const now = new Date();
-  const upcomingMeetings = meetings
+  
+  // Get all upcoming meetings first for counting
+  const allUpcomingMeetings = meetings
     .filter(meeting => new Date(meeting.startTime) >= now)
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-    
-  const pastMeetings = meetings
+  
+  // Then slice to get only the first 3
+  const upcomingMeetings = allUpcomingMeetings.slice(0, 3);
+  const hasMoreUpcoming = allUpcomingMeetings.length > 3;
+  
+  // Same for past meetings
+  const allPastMeetings = meetings
     .filter(meeting => new Date(meeting.startTime) < now)
     .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  
+  const pastMeetings = allPastMeetings.slice(0, 3);
+  const hasMorePast = allPastMeetings.length > 3;
   
   // Handle meeting edit - redirect to meeting details page
   const handleEditMeeting = (meeting: Meeting) => {
@@ -98,13 +108,13 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
             value="upcoming"
             className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary"
           >
-            Upcoming ({upcomingMeetings.length})
+            Upcoming ({allUpcomingMeetings.length})
           </TabsTrigger>
           <TabsTrigger
             value="past"
             className="rounded-none border-b-2 border-transparent px-4 py-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary"
           >
-            Past ({pastMeetings.length})
+            Past ({allPastMeetings.length})
           </TabsTrigger>
         </TabsList>
         
@@ -116,16 +126,25 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
                 <Skeleton className="h-40 w-full" />
               </>
             ) : upcomingMeetings.length > 0 ? (
-              upcomingMeetings.map((meeting) => (
-                <MeetingCard
-                  key={meeting.id}
-                  meeting={meeting}
-                  isLeader={isLeader}
-                  onEdit={handleEditMeeting}
-                  onDelete={handleDeleteMeeting}
-                  onViewNotes={handleViewNotes}
-                />
-              ))
+              <>
+                {upcomingMeetings.map((meeting) => (
+                  <MeetingCard
+                    key={meeting.id}
+                    meeting={meeting}
+                    isLeader={isLeader}
+                    onEdit={handleEditMeeting}
+                    onDelete={handleDeleteMeeting}
+                    onViewNotes={handleViewNotes}
+                  />
+                ))}
+                {hasMoreUpcoming && (
+                  <div className="col-span-full mt-2 text-center">
+                    <p className="text-sm text-neutral-500">
+                      {allUpcomingMeetings.length - 3} more upcoming {allUpcomingMeetings.length - 3 === 1 ? 'meeting' : 'meetings'} not shown
+                    </p>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="col-span-full text-center py-12 bg-neutral-50 rounded-lg border border-neutral-200">
                 <CalendarDays className="h-10 w-10 mx-auto text-neutral-400 mb-2" />
@@ -150,15 +169,24 @@ export default function MeetingsTab({ group, isLeader }: MeetingsTabProps) {
                 <Skeleton className="h-40 w-full" />
               </>
             ) : pastMeetings.length > 0 ? (
-              pastMeetings.map((meeting) => (
-                <MeetingCard
-                  key={meeting.id}
-                  meeting={meeting}
-                  isLeader={isLeader}
-                  onDelete={handleDeleteMeeting}
-                  onViewNotes={handleViewNotes}
-                />
-              ))
+              <>
+                {pastMeetings.map((meeting) => (
+                  <MeetingCard
+                    key={meeting.id}
+                    meeting={meeting}
+                    isLeader={isLeader}
+                    onDelete={handleDeleteMeeting}
+                    onViewNotes={handleViewNotes}
+                  />
+                ))}
+                {hasMorePast && (
+                  <div className="col-span-full mt-2 text-center">
+                    <p className="text-sm text-neutral-500">
+                      {allPastMeetings.length - 3} more past {allPastMeetings.length - 3 === 1 ? 'meeting' : 'meetings'} not shown
+                    </p>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="col-span-full text-center py-12 bg-neutral-50 rounded-lg border border-neutral-200">
                 <CalendarDays className="h-10 w-10 mx-auto text-neutral-400 mb-2" />
