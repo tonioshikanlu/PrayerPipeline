@@ -12,8 +12,12 @@ import {
   resetPasswordSchema,
   insertOrganizationSchema,
   insertOrganizationMemberSchema,
+  insertMeetingSchema,
+  insertMeetingNotesSchema,
   prayerRequests,
   users,
+  meetings,
+  meetingNotes,
 } from "@shared/schema";
 import { sql, and, eq, lt, isNull } from "drizzle-orm";
 import { ZodError } from "zod";
@@ -184,6 +188,36 @@ const isOrganizationAdmin = async (req: Request, res: Response, next: NextFuncti
     return res.status(403).json({ message: "You are not an admin of this organization" });
   }
 
+  next();
+};
+
+// Middleware to check if user is owner of a meeting
+const isMeetingOwner = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  const meetingId = parseInt(req.params.meetingId);
+  if (isNaN(meetingId)) {
+    return res.status(400).json({ message: "Invalid meeting ID" });
+  }
+
+  const meeting = await storage.getMeeting(meetingId);
+  if (!meeting) {
+    return res.status(404).json({ message: "Meeting not found" });
+  }
+
+  // Allow meeting creator or group leader to manage the meeting
+  if (meeting.createdBy !== req.user.id) {
+    // Check if user is a group leader
+    const membership = await storage.getGroupMember(meeting.groupId, req.user.id);
+    if (!membership || membership.role !== "leader") {
+      return res.status(403).json({ message: "You don't have permission to modify this meeting" });
+    }
+  }
+
+  // Add meeting to request object for later use
+  (req as any).meeting = meeting;
   next();
 };
 
@@ -1503,6 +1537,364 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       next(error);
     }
+  });
+
+  // Meeting routes
+  // Get all meetings for a group
+  app.get("/api/groups/:groupId/meetings", isGroupMember, async (req, res) => {
+    const groupId = parseInt(req.params.groupId);
+    if (isNaN(groupId)) {
+      return res.status(400).json({ message: "Invalid group ID" });
+    }
+    
+    const meetings = await storage.getGroupMeetings(groupId);
+    
+    // Enrich meetings with creator info
+    const enrichedMeetings = await Promise.all(
+      meetings.map(async (meeting) => {
+        const creator = await storage.getUser(meeting.createdBy);
+        
+        return {
+          ...meeting,
+          creator: creator ? {
+            id: creator.id,
+            name: creator.name,
+            username: creator.username
+          } : null
+        };
+      })
+    );
+    
+    res.json(enrichedMeetings);
+  });
+  
+  // Get upcoming meetings for the authenticated user
+  app.get("/api/meetings/upcoming", isAuthenticated, async (req, res) => {
+    assertUser(req);
+    const meetings = await storage.getUpcomingMeetings(req.user.id);
+    
+    // Enrich meetings with creator and group info
+    const enrichedMeetings = await Promise.all(
+      meetings.map(async (meeting) => {
+        const creator = await storage.getUser(meeting.createdBy);
+        const group = await storage.getGroup(meeting.groupId);
+        
+        return {
+          ...meeting,
+          creator: creator ? {
+            id: creator.id,
+            name: creator.name,
+            username: creator.username
+          } : null,
+          group: group ? {
+            id: group.id,
+            name: group.name
+          } : null
+        };
+      })
+    );
+    
+    res.json(enrichedMeetings);
+  });
+  
+  // Get a specific meeting
+  app.get("/api/meetings/:meetingId", isAuthenticated, async (req, res) => {
+    const meetingId = parseInt(req.params.meetingId);
+    if (isNaN(meetingId)) {
+      return res.status(400).json({ message: "Invalid meeting ID" });
+    }
+    
+    const meeting = await storage.getMeeting(meetingId);
+    if (!meeting) {
+      return res.status(404).json({ message: "Meeting not found" });
+    }
+    
+    // Check if user is a member of the group this meeting belongs to
+    assertUser(req);
+    const membership = await storage.getGroupMember(meeting.groupId, req.user.id);
+    if (!membership && req.user.role !== "admin") {
+      return res.status(403).json({ message: "You don't have access to this meeting" });
+    }
+    
+    // Enrich meeting with creator info and group details
+    const creator = await storage.getUser(meeting.createdBy);
+    const group = await storage.getGroup(meeting.groupId);
+    
+    const enrichedMeeting = {
+      ...meeting,
+      creator: creator ? {
+        id: creator.id,
+        name: creator.name,
+        username: creator.username
+      } : null,
+      group: group ? {
+        id: group.id,
+        name: group.name
+      } : null
+    };
+    
+    res.json(enrichedMeeting);
+  });
+  
+  // Create a new meeting for a group
+  app.post("/api/groups/:groupId/meetings", isGroupLeader, async (req, res, next) => {
+    try {
+      const groupId = parseInt(req.params.groupId);
+      if (isNaN(groupId)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+      
+      assertUser(req);
+      const meetingData = insertMeetingSchema.parse({
+        ...req.body,
+        groupId,
+        createdBy: req.user.id
+      });
+      
+      const meeting = await storage.createMeeting(meetingData);
+      
+      // Send notifications to all group members
+      const group = await storage.getGroup(groupId);
+      const members = await storage.getGroupMembers(groupId);
+      
+      if (group) {
+        for (const member of members) {
+          // Don't notify the creator
+          if (member.userId !== req.user.id) {
+            await storage.createNotification({
+              userId: member.userId,
+              type: "new_meeting",
+              message: `New meeting scheduled for ${group.name}: ${meeting.title}`,
+              referenceId: meeting.id
+            });
+          }
+        }
+      }
+      
+      res.status(201).json(meeting);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Update a meeting
+  app.put("/api/meetings/:meetingId", isMeetingOwner, async (req, res, next) => {
+    try {
+      const meetingId = parseInt(req.params.meetingId);
+      
+      const updates = insertMeetingSchema.partial().parse(req.body);
+      
+      const meeting = (req as any).meeting; // Added by middleware
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+      
+      const updatedMeeting = await storage.updateMeeting(meetingId, updates);
+      
+      // Send update notifications to all group members
+      const group = await storage.getGroup(meeting.groupId);
+      const members = await storage.getGroupMembers(meeting.groupId);
+      
+      if (group) {
+        for (const member of members) {
+          assertUser(req);
+          // Don't notify the updater
+          if (member.userId !== req.user.id) {
+            await storage.createNotification({
+              userId: member.userId,
+              type: "meeting_updated",
+              message: `Meeting updated for ${group.name}: ${meeting.title}`,
+              referenceId: meeting.id
+            });
+          }
+        }
+      }
+      
+      res.json(updatedMeeting);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Delete a meeting
+  app.delete("/api/meetings/:meetingId", isMeetingOwner, async (req, res) => {
+    const meetingId = parseInt(req.params.meetingId);
+    
+    const meeting = (req as any).meeting; // Added by middleware
+    if (!meeting) {
+      return res.status(404).json({ message: "Meeting not found" });
+    }
+    
+    const success = await storage.deleteMeeting(meetingId);
+    if (!success) {
+      return res.status(500).json({ message: "Failed to delete meeting" });
+    }
+    
+    // Notify group members about cancellation
+    const group = await storage.getGroup(meeting.groupId);
+    const members = await storage.getGroupMembers(meeting.groupId);
+    
+    if (group) {
+      for (const member of members) {
+        assertUser(req);
+        // Don't notify the deleter
+        if (member.userId !== req.user.id) {
+          await storage.createNotification({
+            userId: member.userId,
+            type: "meeting_cancelled",
+            message: `Meeting cancelled for ${group.name}: ${meeting.title}`,
+            referenceId: meeting.id
+          });
+        }
+      }
+    }
+    
+    res.status(204).send();
+  });
+  
+  // Meeting Notes routes
+  // Get notes for a meeting
+  app.get("/api/meetings/:meetingId/notes", isAuthenticated, async (req, res) => {
+    const meetingId = parseInt(req.params.meetingId);
+    if (isNaN(meetingId)) {
+      return res.status(400).json({ message: "Invalid meeting ID" });
+    }
+    
+    const meeting = await storage.getMeeting(meetingId);
+    if (!meeting) {
+      return res.status(404).json({ message: "Meeting not found" });
+    }
+    
+    // Check if user is a member of the group this meeting belongs to
+    assertUser(req);
+    const membership = await storage.getGroupMember(meeting.groupId, req.user.id);
+    if (!membership && req.user.role !== "admin") {
+      return res.status(403).json({ message: "You don't have access to this meeting's notes" });
+    }
+    
+    const notes = await storage.getMeetingNotes(meetingId);
+    res.json(notes);
+  });
+  
+  // Add notes to a meeting
+  app.post("/api/meetings/:meetingId/notes", isGroupMember, async (req, res, next) => {
+    try {
+      const meetingId = parseInt(req.params.meetingId);
+      if (isNaN(meetingId)) {
+        return res.status(400).json({ message: "Invalid meeting ID" });
+      }
+      
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+      
+      // Check if user is a member of the group this meeting belongs to
+      assertUser(req);
+      const membership = await storage.getGroupMember(meeting.groupId, req.user.id);
+      if (!membership && req.user.role !== "admin") {
+        return res.status(403).json({ message: "You don't have permission to add notes to this meeting" });
+      }
+      
+      const notesData = insertMeetingNotesSchema.parse({
+        ...req.body,
+        meetingId
+      });
+      
+      const notes = await storage.createMeetingNotes(notesData);
+      res.status(201).json(notes);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Update meeting notes
+  app.put("/api/meetings/:meetingId/notes/:noteId", isGroupMember, async (req, res, next) => {
+    try {
+      const meetingId = parseInt(req.params.meetingId);
+      const noteId = parseInt(req.params.noteId);
+      
+      if (isNaN(meetingId) || isNaN(noteId)) {
+        return res.status(400).json({ message: "Invalid meeting ID or note ID" });
+      }
+      
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ message: "Meeting not found" });
+      }
+      
+      // Check if user is a member of the group this meeting belongs to
+      assertUser(req);
+      const membership = await storage.getGroupMember(meeting.groupId, req.user.id);
+      if (!membership && req.user.role !== "admin") {
+        return res.status(403).json({ message: "You don't have permission to update notes for this meeting" });
+      }
+      
+      const updates = insertMeetingNotesSchema.partial().parse(req.body);
+      const updatedNotes = await storage.updateMeetingNotes(noteId, updates);
+      
+      if (!updatedNotes) {
+        return res.status(404).json({ message: "Meeting notes not found" });
+      }
+      
+      res.json(updatedNotes);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  // Delete meeting notes
+  app.delete("/api/meetings/:meetingId/notes/:noteId", isGroupLeader, async (req, res) => {
+    const meetingId = parseInt(req.params.meetingId);
+    const noteId = parseInt(req.params.noteId);
+    
+    if (isNaN(meetingId) || isNaN(noteId)) {
+      return res.status(400).json({ message: "Invalid meeting ID or note ID" });
+    }
+    
+    const meeting = await storage.getMeeting(meetingId);
+    if (!meeting) {
+      return res.status(404).json({ message: "Meeting not found" });
+    }
+    
+    // Check if user is a leader of the group this meeting belongs to (already checked by middleware)
+    const success = await storage.deleteMeetingNotes(noteId);
+    if (!success) {
+      return res.status(404).json({ message: "Meeting notes not found" });
+    }
+    
+    res.status(204).send();
+  });
+  
+  // Create prayer requests from meeting notes
+  app.post("/api/meetings/:meetingId/create-requests", isGroupLeader, async (req, res) => {
+    const meetingId = parseInt(req.params.meetingId);
+    
+    if (isNaN(meetingId)) {
+      return res.status(400).json({ message: "Invalid meeting ID" });
+    }
+    
+    const meeting = await storage.getMeeting(meetingId);
+    if (!meeting) {
+      return res.status(404).json({ message: "Meeting not found" });
+    }
+    
+    // Create prayer requests from notes
+    assertUser(req);
+    const prayerRequests = await storage.createPrayerRequestsFromNotes(
+      meetingId,
+      meeting.groupId,
+      req.user.id
+    );
+    
+    if (prayerRequests.length === 0) {
+      return res.status(400).json({ message: "No prayer requests could be created from meeting notes" });
+    }
+    
+    res.status(201).json({ 
+      message: `Created ${prayerRequests.length} prayer requests from meeting notes`,
+      prayerRequests
+    });
   });
 
   // Check for stale prayer requests (admin only)
