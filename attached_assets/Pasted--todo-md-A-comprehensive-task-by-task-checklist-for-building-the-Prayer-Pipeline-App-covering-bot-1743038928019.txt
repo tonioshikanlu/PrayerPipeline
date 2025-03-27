@@ -1,0 +1,483 @@
+# todo.md
+
+A comprehensive task-by-task checklist for building the Prayer Pipeline App, covering both backend and frontend steps.  
+Check off each item as you complete it to stay organized and on track.
+
+---
+
+## 1. Project Setup & Scaffolding
+
+- [ ] **Create Git repository**  
+  - [ ] Make a local folder named `prayer-pipeline`  
+  - [ ] Initialize a Git repo (`git init`)  
+  - [ ] Create an empty `README.md` with a project name and short summary  
+  - [ ] Make the initial commit
+
+- [ ] **Set up backend framework**  
+  - [ ] Choose backend framework (e.g., Node.js + Express)  
+  - [ ] Initialize project (e.g., `npm init` or equivalent)  
+  - [ ] Install core dependencies (Express, etc.)  
+  - [ ] Create a basic `index.js` (or `app.js`) with a "Hello World" route  
+  - [ ] Test to confirm the server runs on localhost
+
+- [ ] **Database configuration**  
+  - [ ] Choose database (e.g., PostgreSQL)  
+  - [ ] Install DB drivers/ORM library (e.g., `pg`, Sequelize)  
+  - [ ] Create a `.env` file with DB credentials (dev/test)  
+  - [ ] Update DB config in `index.js` or appropriate config files  
+  - [ ] Confirm DB connection by running a simple test query (if desired)
+
+- [ ] **(Optional) Docker environment**  
+  - [ ] Create a `Dockerfile` for the backend  
+  - [ ] Create a `docker-compose.yml` to manage backend + DB containers  
+  - [ ] Ensure `docker-compose up` works without errors
+
+- [ ] **Directory structure**  
+  - [ ] Create folders: `routes/`, `controllers/`, `models/`, `tests/`  
+  - [ ] Place your initial code files in each folder (even if just placeholders)
+
+---
+
+## 2. Database Schema & Migrations
+
+- [ ] **Install and configure ORM**  
+  - [ ] Install Sequelize (or ORM of choice)  
+  - [ ] Configure ORM with DB credentials in a config file
+
+- [ ] **Create basic models and migrations**  
+  - [ ] `User` model + migration  
+  - [ ] `Group` model + migration  
+  - [ ] `PrayerRequest` model + migration  
+  - [ ] `Comment` model + migration  
+  - [ ] `Notification` model + migration
+
+- [ ] **Run migrations**  
+  - [ ] Use migration commands (e.g., `sequelize db:migrate`)  
+  - [ ] Confirm tables are created successfully
+
+- [ ] **(Optional) Model validation**  
+  - [ ] Add field validations (e.g., email format, required fields)
+
+---
+
+## 3. User Model & Authentication
+
+- [ ] **User registration endpoint**  
+  - [ ] `POST /auth/register` with fields: email, password, role (optional)  
+  - [ ] Hash passwords using bcrypt (or similar) before storing  
+  - [ ] Validate email/unique constraints
+
+- [ ] **User login endpoint**  
+  - [ ] `POST /auth/login`  
+  - [ ] Compare hashed password with user input  
+  - [ ] Generate JWT if credentials are valid  
+  - [ ] Return token in response
+
+- [ ] **JWT secret key**  
+  - [ ] Add a `JWT_SECRET` in `.env`  
+  - [ ] Use environment variable in the authentication logic
+
+- [ ] **Error handling**  
+  - [ ] Handle duplicate email on registration  
+  - [ ] Handle incorrect credentials on login  
+  - [ ] Return helpful error messages
+
+- [ ] **Basic testing**  
+  - [ ] Unit test for registration  
+  - [ ] Unit test for login  
+  - [ ] Check token validity
+
+---
+
+## 4. Roles & Permissions
+
+- [ ] **Extend `User` model**  
+  - [ ] Role attribute: "regular", "leader", "admin"
+
+- [ ] **Middleware for role checks**  
+  - [ ] Create a role-checking middleware (e.g., `requireRole('admin')`)  
+  - [ ] Restrict access to certain routes based on role
+
+- [ ] **Test role-based access**  
+  - [ ] Verify admin-only routes  
+  - [ ] Verify leader or admin routes  
+  - [ ] Verify regular user routes
+
+---
+
+## 5. Group Management
+
+- [ ] **Group CRUD endpoints**  
+  - [ ] `POST /groups` (leader or admin)  
+  - [ ] `GET /groups` (all users)  
+  - [ ] `GET /groups/:id` (all users)  
+  - [ ] `PUT /groups/:id` (leader or admin)  
+  - [ ] `DELETE /groups/:id` (admin only)
+
+- [ ] **Add/remove members**  
+  - [ ] `POST /groups/:id/members` (leader or admin)  
+  - [ ] `DELETE /groups/:id/members/:userId` (leader or admin)
+
+- [ ] **Privacy settings**  
+  - [ ] Integrate into `Group` model (open, invite-only, request-to-join)
+
+- [ ] **Leadership rotation**  
+  - [ ] Basic logic for rotating leadership every 30 days (if applicable)
+
+- [ ] **Group tests**  
+  - [ ] Create groups  
+  - [ ] Add members  
+  - [ ] Ensure role-based restrictions  
+  - [ ] Update/delete groups
+
+---
+
+## 6. Prayer Requests & Comments
+
+- [ ] **`PrayerRequest` model**  
+  - [ ] Fields: id, userId, groupId, title, description, urgency, followUpDate, isAnonymous, status, timestamps
+
+- [ ] **Prayer request endpoints**  
+  - [ ] `POST /groups/:groupId/requests`  
+  - [ ] `GET /groups/:groupId/requests`  
+  - [ ] `GET /groups/:groupId/requests/:requestId`  
+  - [ ] `PUT /groups/:groupId/requests/:requestId`  
+  - [ ] `DELETE /groups/:groupId/requests/:requestId`
+
+- [ ] **Comment model**  
+  - [ ] Fields: id, prayerRequestId, userId, text, isPrivate, timestamps
+
+- [ ] **Comment endpoints**  
+  - [ ] `POST /requests/:requestId/comments`  
+  - [ ] `GET /requests/:requestId/comments`  
+  - [ ] `PUT /requests/:requestId/comments/:commentId`  
+  - [ ] `DELETE /requests/:requestId/comments/:commentId`
+
+- [ ] **Permissions & anonymity**  
+  - [ ] Ensure users can only edit/delete their own requests/comments  
+  - [ ] Anonymity toggle (user is hidden unless turned off)  
+  - [ ] Status updates (Still Waiting, Answered, God Said No)
+
+- [ ] **Testing**  
+  - [ ] Unit tests for request creation, editing  
+  - [ ] Unit tests for comment creation, editing  
+  - [ ] Integration tests (linking request to group, etc.)
+
+---
+
+## 7. Notifications & Activity Feed
+
+- [ ] **Notification model**  
+  - [ ] Fields: id, userId, message, read, type, referenceId, timestamps
+
+- [ ] **Notification creation**  
+  - [ ] Auto-generate a notification when a new prayer request is added  
+  - [ ] Auto-generate a notification when a comment is posted (for the request owner)  
+  - [ ] (Optional) Additional notifications for leadership changes or other events
+
+- [ ] **Notification endpoints**  
+  - [ ] `GET /notifications` (fetch user's notifications)  
+  - [ ] `PATCH /notifications/:id` (mark notification as read)  
+  - [ ] `PATCH /notifications/mark-all-read` (mark all as read)  
+  - [ ] `DELETE /notifications/:id` (remove notification)
+
+- [ ] **Push notification integration** (e.g., Firebase/OneSignal)  
+  - [ ] Set up push notification tokens if you want mobile push notifications  
+  - [ ] Confirm that a push is triggered on event (e.g., new request)
+
+- [ ] **Testing**  
+  - [ ] Validate notifications are created in the DB as expected  
+  - [ ] Confirm correct notifications for group members vs. request owners
+
+---
+
+## 8. Admin & Moderation
+
+- [ ] **Admin dashboard**  
+  - [ ] `GET /admin/dashboard` for summary stats (user count, group count, prayer requests, etc.)
+
+- [ ] **Moderation**  
+  - [ ] `DELETE /admin/requests/:requestId` to remove flagged/inappropriate requests  
+  - [ ] `DELETE /admin/comments/:commentId` to remove flagged/inappropriate comments
+
+- [ ] **User management**  
+  - [ ] `GET /admin/users` to list all users  
+  - [ ] `PATCH /admin/users/:userId/role` to update user roles
+
+- [ ] **Security checks**  
+  - [ ] Restrict admin routes to "admin" role only  
+  - [ ] Proper error handling if non-admin attempts to access admin routes
+
+- [ ] **Testing**  
+  - [ ] Confirm only admin can call these routes  
+  - [ ] Confirm relevant items (requests/users) can be removed
+
+---
+
+## 9. Frontend Implementation (Mobile)
+
+- [ ] **Initialize mobile app**  
+  - [ ] Choose a framework (React Native, Flutter, etc.)  
+  - [ ] Create basic project structure (using CLI tools)
+
+- [ ] **UI scaffolding**  
+  - [ ] Login screen  
+  - [ ] Registration screen (if needed)  
+  - [ ] Home / dashboard screen  
+  - [ ] Group listing screen  
+  - [ ] Group detail screen (show prayer requests)  
+  - [ ] Request detail screen (show comments)
+
+- [ ] **State management**  
+  - [ ] Integrate Redux/Provider/BLoC (framework dependent)  
+  - [ ] Set up basic actions and reducers (e.g., auth, groups, requests)
+
+- [ ] **API integration**  
+  - [ ] Use Axios (or fetch) for network calls  
+  - [ ] Implement login call to `/auth/login`  
+  - [ ] Save JWT in Redux or secure storage  
+  - [ ] Use JWT in headers for subsequent requests (groups, requests, etc.)
+
+- [ ] **Error handling / UI feedback**  
+  - [ ] Display errors for invalid credentials, network failures  
+  - [ ] Show loading states (spinners, progress indicators)
+
+---
+
+## 10. Testing & Deployment
+
+- [ ] **Unit tests**  
+  - [ ] Comprehensive test coverage in the backend (routes, controllers, models)  
+  - [ ] Frontend component tests (if desired, e.g., Jest for React Native)
+
+- [ ] **Integration tests**  
+  - [ ] Confirm full flows (create group -> add user -> user adds request -> comment -> notification triggers)  
+  - [ ] Check multi-role interactions (admin vs. leader vs. user)
+
+- [ ] **CI/CD pipeline**  
+  - [ ] Set up GitHub Actions, GitLab CI, or Jenkins  
+  - [ ] Automate tests on pull requests or merges  
+  - [ ] Automated deployment to staging/production (if applicable)
+
+- [ ] **Deployment**  
+  - [ ] Deploy backend to a server (Heroku, AWS, Azure, etc.)  
+  - [ ] Deploy mobile apps (release or test build to iOS/Android)  
+  - [ ] Confirm environment variable settings in production
+
+- [ ] **Monitoring**  
+  - [ ] Integrate logging service (Sentry, Datadog, etc.)  
+  - [ ] Track errors and performance issues in production  
+  - [ ] Set up analytics for mobile usage
+
+---
+
+## 11. Mobile Screens & Flows
+
+Below is a detailed step-by-step checklist for **all the major mobile flows and screens** in the Prayer Pipeline App. Check off each step as you go to ensure thorough coverage.
+
+### 11.1. Onboarding & Authentication
+
+- [ ] **Splash / Onboarding Screens (Optional)**  
+  - [ ] Decide whether you have an onboarding flow (introduction slides, usage tips)  
+  - [ ] Create UI layout for splash screen or onboarding carousel  
+  - [ ] Implement navigation from onboarding to the login screen
+
+- [ ] **Registration Flow**  
+  - [ ] Screen design: Registration form (email, password, confirm password)  
+  - [ ] Form validation: Check email format, password length, matching passwords  
+  - [ ] API integration: `POST /auth/register` with form data  
+  - [ ] Success handling: Automatically log in user or navigate them to Login screen  
+  - [ ] Error handling: Display user-friendly messages for server errors  
+  - [ ] UI/UX checks: Provide loading indicators
+
+- [ ] **Login Flow**  
+  - [ ] Screen design: Login form (email, password)  
+  - [ ] API integration: `POST /auth/login`  
+  - [ ] JWT handling: Save token in secure storage or Redux store  
+  - [ ] Error handling: Show invalid credentials or server errors  
+  - [ ] (Optional) “Remember Me / Stay Signed In” toggle  
+  - [ ] Navigation: Redirect to Home or Dashboard screen upon success
+
+- [ ] **Password Reset / Forgot Password (Optional)**  
+  - [ ] Forgot Password screen (email input, instructions)  
+  - [ ] API integration: `POST /auth/forgot-password` (if supported)  
+  - [ ] Display success message (“Password reset link sent”)  
+  - [ ] Loading spinners, error messages
+
+---
+
+### 11.2. Home / Dashboard
+
+- [ ] **Home Screen Design**  
+  - [ ] Welcome banner (user’s name or greeting)  
+  - [ ] Navigation elements (tabs or buttons: Groups, Notifications, Profile)  
+  - [ ] Recent activity (optional list of recent requests or announcements)
+
+- [ ] **State Management (Redux, etc.)**  
+  - [ ] Fetch initial data (user info, group summary, etc.)  
+  - [ ] Store data in Redux or equivalent
+
+- [ ] **Navigation from Home**  
+  - [ ] Links to Group Listing  
+  - [ ] Links to Notifications screen  
+  - [ ] Links to Profile or Settings  
+  - [ ] (Optional) Quick actions (new prayer request button, pinned announcements)
+
+---
+
+### 11.3. Group Listing & Details
+
+- [ ] **Group Listing Screen**  
+  - [ ] Design layout (group name, description)  
+  - [ ] API integration: `GET /groups`  
+  - [ ] Pull-to-refresh or infinite scroll (optional)  
+  - [ ] (Leader/Admin) Create group button -> “Create Group” screen
+
+- [ ] **Create / Edit Group Screen (Leader/Admin)**  
+  - [ ] Form fields: Name, description, privacy (open, request-to-join, invite-only)  
+  - [ ] API calls: `POST /groups`, `PUT /groups/:id`  
+  - [ ] Validation, UI feedback (loading, success/failure)
+
+- [ ] **Group Detail Screen**  
+  - [ ] Display group name, description, privacy, leader info, membership count  
+  - [ ] API call: `GET /groups/:id`  
+  - [ ] (Optional) Member list  
+  - [ ] Join / Leave group button (depends on user role/permissions)  
+  - [ ] Link to group’s prayer requests
+
+- [ ] **Manage Members Flow (Leader/Admin)**  
+  - [ ] Add members (UI for searching or typing emails) -> `POST /groups/:id/members`  
+  - [ ] Remove members -> `DELETE /groups/:id/members/:userId`  
+  - [ ] Role-based checks: only leader/admin sees these
+
+---
+
+### 11.4. Prayer Requests & Comments
+
+- [ ] **Prayer Request Listing Screen**  
+  - [ ] Display list of requests, with urgency, partial text  
+  - [ ] API: `GET /groups/:groupId/requests`  
+  - [ ] (Optional) Filter or sort by urgency/status
+
+- [ ] **Create / Edit Prayer Request Screen**  
+  - [ ] Title, description, urgency, follow-up date, isAnonymous toggle  
+  - [ ] `POST /groups/:groupId/requests`, `PUT /groups/:groupId/requests/:requestId`  
+  - [ ] Validation, UI feedback
+
+- [ ] **Prayer Request Detail Screen**  
+  - [ ] Show full request text, urgency, follow-up date, status  
+  - [ ] Actions: Change status, edit, delete (if owner or leader/admin)  
+  - [ ] Show or link to comment section
+
+- [ ] **Commenting Flow**  
+  - [ ] Comment list (user name or "Anonymous" if private)  
+  - [ ] Add comment: `POST /requests/:requestId/comments`  
+  - [ ] isPrivate toggle if supported  
+  - [ ] Edit / Delete comment: only if owner  
+  - [ ] UI feedback, loading states, error messages
+
+---
+
+### 11.5. Notifications
+
+- [ ] **Notifications Screen**  
+  - [ ] List notifications (text, timestamp, read/unread)  
+  - [ ] `GET /notifications`  
+  - [ ] Mark as read: `PATCH /notifications/:id`  
+  - [ ] Pull-to-refresh or auto-refresh logic
+
+- [ ] **Push Notifications (Optional)**  
+  - [ ] Obtain device token (Firebase/OneSignal)  
+  - [ ] Send token to backend if needed  
+  - [ ] Handle push (system notification or in-app alert)  
+  - [ ] If user is active, update UI in real time (optional)
+
+---
+
+### 11.6. Profile & Settings
+
+- [ ] **Profile Screen**  
+  - [ ] User name, email, avatar (optional)  
+  - [ ] API call: `GET /users/:id` or “current user”  
+  - [ ] Edit profile: update name, avatar (optional)
+
+- [ ] **Settings Screen**  
+  - [ ] Privacy options (default anonymity)  
+  - [ ] Notification settings (push/email toggles)  
+  - [ ] Dark mode (optional)  
+  - [ ] Logout (clear JWT, navigate to Login)
+
+---
+
+### 11.7. Admin-Specific Flows (Optional)
+
+- [ ] **Admin Dashboard Screen**  
+  - [ ] Show totals (users, groups, flagged requests)  
+  - [ ] `GET /admin/dashboard`
+
+- [ ] **Moderation Flow**  
+  - [ ] Remove flagged requests: `DELETE /admin/requests/:requestId`  
+  - [ ] Possibly ban users or manage user roles: `PUT /admin/users/:userId`  
+  - [ ] Role-based UI checks (only admin sees these options)
+
+---
+
+### 11.8. Navigation & Routing
+
+- [ ] **Navigation library** (React Navigation, Flutter Navigator, etc.)  
+  - [ ] Define screens: Login, Registration, Home, GroupListing, GroupDetails, Requests, Comments, Profile, Notifications, Admin  
+  - [ ] Tabs or drawer if multi-tab approach  
+  - [ ] (Optional) Deep links for push notifications that open a specific screen
+
+- [ ] **State Management**  
+  - [ ] Redux (or alternative) store: auth slice, groups slice, requests slice, notifications slice  
+  - [ ] Actions / reducers for CRUD operations  
+  - [ ] Async flows (Redux Thunk, Saga)  
+  - [ ] (Optional) local/offline caching
+
+- [ ] **Testing & QA**  
+  - [ ] Unit testing (component tests)  
+  - [ ] Integration testing (end-to-end flows)  
+  - [ ] Usability checks (accessibility, error handling)
+
+---
+
+### 11.9. Deployment & Distribution
+
+- [ ] **Platform builds**  
+  - [ ] Android: Generate signed APK or AAB  
+  - [ ] iOS: Generate IPA, handle provisioning profiles
+
+- [ ] **App Store release**  
+  - [ ] Google Play Store listing  
+  - [ ] Apple App Store listing  
+  - [ ] App icons, screenshots, descriptions
+
+- [ ] **Versioning & updates**  
+  - [ ] Bump version codes for each release  
+  - [ ] Test upgrade path for existing users
+
+---
+
+## 12. Optional Additional Enhancements
+
+- [ ] **Live Prayer Session Links**  
+  - [ ] Support Zoom/Google Meet/FaceTime links in group events  
+  - [ ] Notify group members when a live session is scheduled
+
+- [ ] **Exporting Data**  
+  - [ ] PDF/CSV export for a user’s private prayer journal  
+  - [ ] Provide a download link in the user profile page or settings
+
+- [ ] **Theming**  
+  - [ ] Light/dark mode toggle  
+  - [ ] Consistent branding, color scheme
+
+- [ ] **Offline Mode**  
+  - [ ] Cache certain data locally to allow some offline functionality
+
+---
+
+**Happy Building!**  
+
+Use this checklist as a living document. As you progress, mark tasks as complete, adjust for changing requirements, and maintain a clear overview of what remains to be done.
