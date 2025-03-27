@@ -79,6 +79,34 @@ export async function runMigrations() {
       console.log("parent_meeting_id column added successfully");
     }
     
+    // Check if prayer_reminders table exists
+    const prayerRemindersResult = await pool.query(`
+      SELECT table_name FROM information_schema.tables 
+      WHERE table_name = 'prayer_reminders'
+    `);
+    
+    if (prayerRemindersResult.rows.length === 0) {
+      console.log("Creating prayer_reminders table...");
+      await pool.query(`
+        CREATE TABLE prayer_reminders (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          reminder_time TIME NOT NULL,
+          is_recurring BOOLEAN NOT NULL DEFAULT FALSE,
+          recurring_days TEXT,
+          active_until TIMESTAMP,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          is_active BOOLEAN NOT NULL DEFAULT TRUE
+        )
+      `);
+      console.log("prayer_reminders table created successfully");
+    } else {
+      console.log("prayer_reminders table already exists");
+    }
+    
     console.log("All migrations completed successfully");
   } catch (error) {
     console.error("Error running migrations:", error);
