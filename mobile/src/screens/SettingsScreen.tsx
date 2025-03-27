@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,6 +17,7 @@ import {
   SegmentedButtons,
 } from 'react-native-paper';
 import { useAuth } from '@hooks/useAuth';
+import { useNotifications } from '@hooks/useNotifications';
 import { useForm, Controller } from 'react-hook-form';
 
 type ProfileFormInputs = {
@@ -30,16 +31,22 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
   const theme = useTheme();
   const { user, logoutMutation } = useAuth();
+  const { isNotificationsEnabled, enableNotifications, disableNotifications } = useNotifications();
   
   // State for active tab
   const [activeTab, setActiveTab] = useState('profile');
   
   // State for notification settings
-  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(isNotificationsEnabled);
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true);
   const [newRequestNotifications, setNewRequestNotifications] = useState(true);
   const [commentNotifications, setCommentNotifications] = useState(true);
   const [reminderNotifications, setReminderNotifications] = useState(true);
+  
+  // Sync the push notification toggle with the notification system
+  useEffect(() => {
+    setPushNotificationsEnabled(isNotificationsEnabled);
+  }, [isNotificationsEnabled]);
   
   // Form for profile editing
   const { control, handleSubmit, formState: { errors } } = useForm<ProfileFormInputs>({
@@ -207,7 +214,14 @@ export default function SettingsScreen() {
                 right={() => (
                   <Switch
                     value={pushNotificationsEnabled}
-                    onValueChange={setPushNotificationsEnabled}
+                    onValueChange={(value) => {
+                      setPushNotificationsEnabled(value);
+                      if (value) {
+                        enableNotifications();
+                      } else {
+                        disableNotifications();
+                      }
+                    }}
                     color={theme.colors.primary}
                   />
                 )}

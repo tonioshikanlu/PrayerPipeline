@@ -2,8 +2,9 @@ import webpush from 'web-push';
 import { storage } from './storage';
 import { Request, Response } from 'express';
 import { db } from './db';
-import { subscriptions, PrayerReminder } from '@shared/schema';
+import { subscriptions, PrayerReminder, pushTokens } from '@shared/schema';
 import { eq } from 'drizzle-orm';
+import fetch from 'node-fetch';
 
 // Generate VAPID keys for web push notifications
 // These should be generated only once and stored securely
@@ -82,53 +83,124 @@ export async function unsubscribeUser(req: Request, res: Response) {
 // Function to send a push notification to a user
 export async function sendPushNotification(userId: number, title: string, body: string, url?: string) {
   try {
-    // Get all subscriptions for the user
+    // Track results
+    let webPushSuccessful = 0;
+    let webPushFailed = 0;
+    let expoPushSuccessful = 0;
+    let expoPushFailed = 0;
+
+    // 1. Send Web Push Notifications
     const userSubscriptions = await db.select()
       .from(subscriptions)
       .where(eq(subscriptions.userId, userId));
 
-    if (!userSubscriptions.length) {
-      return { success: false, message: 'No subscriptions found for user' };
+    if (userSubscriptions.length > 0) {
+      // Prepare web push notification payload
+      const webPushPayload = JSON.stringify({
+        title,
+        body,
+        url: url || '/',
+        timestamp: new Date().getTime()
+      });
+
+      // Send notification to all user's web push subscriptions
+      const webPushResults = await Promise.allSettled(
+        userSubscriptions.map(async (subscription) => {
+          try {
+            await webpush.sendNotification({
+              endpoint: subscription.endpoint,
+              keys: {
+                p256dh: subscription.p256dh,
+                auth: subscription.auth
+              }
+            }, webPushPayload);
+            return { success: true, endpoint: subscription.endpoint };
+          } catch (error: any) {
+            // If subscription is expired or invalid, remove it
+            if (error.statusCode === 404 || error.statusCode === 410) {
+              await db.delete(subscriptions)
+                .where(eq(subscriptions.endpoint, subscription.endpoint));
+            }
+            throw error;
+          }
+        })
+      );
+
+      // Count successful and failed web push notifications
+      webPushSuccessful = webPushResults.filter(r => r.status === 'fulfilled').length;
+      webPushFailed = webPushResults.filter(r => r.status === 'rejected').length;
     }
 
-    // Prepare notification payload
-    const payload = JSON.stringify({
-      title,
-      body,
-      url: url || '/',
-      timestamp: new Date().getTime()
-    });
+    // 2. Send Expo Push Notifications
+    const userTokens = await db.select()
+      .from(pushTokens)
+      .where(eq(pushTokens.userId, userId));
 
-    // Send notification to all user's subscriptions
-    const results = await Promise.allSettled(
-      userSubscriptions.map(async (subscription) => {
-        try {
-          await webpush.sendNotification({
-            endpoint: subscription.endpoint,
-            keys: {
-              p256dh: subscription.p256dh,
-              auth: subscription.auth
+    if (userTokens.length > 0) {
+      // Prepare messages for Expo push service
+      const messages = userTokens.map(tokenRecord => ({
+        to: tokenRecord.token,
+        sound: 'default',
+        title,
+        body,
+        data: { url: url || '/' },
+      }));
+
+      // Send to Expo push service
+      const expoPushResponse = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages)
+      });
+
+      const expoPushResult = await expoPushResponse.json() as {
+        data?: { 
+          status: 'ok' | 'error';
+          message?: string;
+        }[] 
+      };
+      
+      if (expoPushResult.data) {
+        // Count successful and failed expo push notifications
+        expoPushSuccessful = expoPushResult.data.filter(item => item.status === 'ok').length;
+        expoPushFailed = messages.length - expoPushSuccessful;
+
+        // Clean up any invalid tokens
+        if (expoPushResult.data.some(item => item.status === 'error')) {
+          for (let i = 0; i < expoPushResult.data.length; i++) {
+            const item = expoPushResult.data[i];
+            if (item.status === 'error' && 
+                item.message && (
+                  item.message === 'DeviceNotRegistered' || 
+                  item.message === 'InvalidCredentials' || 
+                  item.message === 'MessageTooBig' || 
+                  item.message === 'MessageRateExceeded'
+                )) {
+              // Remove invalid token
+              await db.delete(pushTokens)
+                .where(eq(pushTokens.token, messages[i].to));
             }
-          }, payload);
-          return { success: true, endpoint: subscription.endpoint };
-        } catch (error: any) {
-          // If subscription is expired or invalid, remove it
-          if (error.statusCode === 404 || error.statusCode === 410) {
-            await db.delete(subscriptions)
-              .where(eq(subscriptions.endpoint, subscription.endpoint));
           }
-          throw error;
         }
-      })
-    );
+      }
+    }
 
-    // Count successful and failed notifications
-    const successful = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.filter(r => r.status === 'rejected').length;
+    const totalSuccessful = webPushSuccessful + expoPushSuccessful;
+    const totalFailed = webPushFailed + expoPushFailed;
+    const totalAttempted = totalSuccessful + totalFailed;
+
+    if (totalAttempted === 0) {
+      return { success: false, message: 'No push notification subscriptions found for user' };
+    }
 
     return {
-      success: successful > 0,
-      message: `Sent ${successful} notifications, failed to send ${failed} notifications`
+      success: totalSuccessful > 0,
+      message: `Sent ${totalSuccessful} notifications (${webPushSuccessful} web, ${expoPushSuccessful} mobile), failed to send ${totalFailed} notifications`,
+      web: { successful: webPushSuccessful, failed: webPushFailed },
+      expo: { successful: expoPushSuccessful, failed: expoPushFailed }
     };
   } catch (error) {
     console.error('Error sending push notification:', error);
@@ -166,6 +238,86 @@ export async function sendGroupNotification(groupId: number, exceptUserId: numbe
 // VAPID public key getter - for the frontend to use
 export function getVapidPublicKey(req: Request, res: Response) {
   res.json({ publicKey: vapidKeys.publicKey });
+}
+
+// Function to register an Expo push token
+export async function registerPushToken(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+
+  const { token, deviceType } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ message: 'Push token is required' });
+  }
+
+  try {
+    // Check if token already exists
+    const existingToken = await db.select()
+      .from(pushTokens)
+      .where(eq(pushTokens.token, token))
+      .limit(1);
+
+    if (existingToken.length > 0) {
+      // Update last used time
+      await db.update(pushTokens)
+        .set({ 
+          lastUsed: new Date(),
+          userId: req.user.id, // Update user ID in case token was transferred between accounts
+          deviceType: deviceType || existingToken[0].deviceType 
+        })
+        .where(eq(pushTokens.token, token));
+
+      return res.status(200).json({ 
+        message: 'Push token updated successfully',
+        id: existingToken[0].id
+      });
+    }
+
+    // Save new token to database with user ID
+    const [savedToken] = await db.insert(pushTokens)
+      .values({
+        userId: req.user.id,
+        token,
+        deviceType: deviceType || 'unknown',
+        createdAt: new Date(),
+        lastUsed: new Date()
+      })
+      .returning();
+
+    return res.status(201).json({
+      message: 'Push token registered successfully',
+      id: savedToken.id
+    });
+  } catch (error) {
+    console.error('Error registering push token:', error);
+    return res.status(500).json({ message: 'Failed to register push token' });
+  }
+}
+
+// Function to unregister an Expo push token
+export async function unregisterPushToken(req: Request, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ message: 'Push token is required' });
+  }
+
+  try {
+    // Remove token from database
+    await db.delete(pushTokens)
+      .where(eq(pushTokens.token, token));
+
+    return res.status(200).json({ message: 'Push token removed successfully' });
+  } catch (error) {
+    console.error('Error removing push token:', error);
+    return res.status(500).json({ message: 'Failed to remove push token' });
+  }
 }
 
 // Function to schedule a prayer reminder notification

@@ -54,7 +54,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     // Register the token with our backend
     try {
-      await apiRequest('POST', '/api/notifications/register', {
+      await apiRequest('POST', '/api/push/register-token', {
         token: pushToken.data,
         deviceType: Platform.OS,
       });
@@ -74,7 +74,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 // Unregister from push notifications (e.g., on logout)
 export async function unregisterFromPushNotifications(token: string): Promise<boolean> {
   try {
-    await apiRequest('POST', '/api/notifications/unregister', {
+    await apiRequest('POST', '/api/push/unregister-token', {
       token,
     });
     return true;

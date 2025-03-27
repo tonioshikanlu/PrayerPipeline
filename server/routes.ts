@@ -3,7 +3,14 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { db } from "./db";
-import { subscribeUser, unsubscribeUser, getVapidPublicKey, schedulePrayerReminderNotification } from "./push-notifications";
+import { 
+  subscribeUser, 
+  unsubscribeUser, 
+  getVapidPublicKey, 
+  schedulePrayerReminderNotification,
+  registerPushToken,
+  unregisterPushToken
+} from "./push-notifications";
 import {
   insertGroupSchema,
   insertPrayerRequestSchema,
@@ -1567,9 +1574,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Push notification routes
+  // Web Push Notification endpoints
   app.get("/api/push/vapid-public-key", getVapidPublicKey);
   app.post("/api/push/subscribe", isAuthenticated, subscribeUser);
   app.post("/api/push/unsubscribe", isAuthenticated, unsubscribeUser);
+  
+  // Expo Push Notification endpoints
+  app.post("/api/push/register-token", isAuthenticated, registerPushToken);
+  app.post("/api/push/unregister-token", isAuthenticated, unregisterPushToken);
   
   // Prayer Reminder Routes
   app.get("/api/prayer-reminders", isAuthenticated, async (req, res) => {

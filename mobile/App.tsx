@@ -6,6 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from '@navigation/AppNavigator';
 import { AuthProvider } from '@/context/AuthContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 import { queryClient } from '@/api/queryClient';
 
 // Customize the theme
@@ -26,8 +27,10 @@ export default function App() {
         <SafeAreaProvider>
           <NavigationContainer>
             <AuthProvider>
-              <AppNavigator />
-              <StatusBar style="auto" />
+              <NotificationProvider>
+                <AppNavigator />
+                <StatusBar style="auto" />
+              </NotificationProvider>
             </AuthProvider>
           </NavigationContainer>
         </SafeAreaProvider>
