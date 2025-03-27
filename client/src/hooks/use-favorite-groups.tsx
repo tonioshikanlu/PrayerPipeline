@@ -19,11 +19,8 @@ export function useFavoriteGroups() {
   });
 
   // Check if a group is favorited
-  const useIsFavorite = (groupId: number) => {
-    return useQuery<{ isFavorite: boolean }>({
-      queryKey: ["/api/groups", groupId, "favorite"],
-      enabled: !!groupId,
-    });
+  const isFavorite = (groupId: number): boolean => {
+    return favoriteGroups.some(group => group.id === groupId);
   };
 
   // Add a group to favorites
@@ -83,7 +80,7 @@ export function useFavoriteGroups() {
     favoriteGroups,
     isLoading,
     error,
-    useIsFavorite,
+    isFavorite,
     addToFavorites: addToFavoritesMutation.mutate,
     removeFromFavorites: removeFromFavoritesMutation.mutate,
     toggleFavorite,

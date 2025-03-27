@@ -680,17 +680,16 @@ export default function GroupDetails() {
 
 // FavoriteGroupButton component to handle favorite status for a group
 function FavoriteGroupButton({ groupId }: { groupId: number }) {
-  const { useIsFavorite, toggleFavorite, isPendingAdd, isPendingRemove } = useFavoriteGroups();
-  const { data, isLoading } = useIsFavorite(groupId);
-  const isFavorite = data?.isFavorite || false;
+  const { isFavorite, toggleFavorite, isPendingAdd, isPendingRemove } = useFavoriteGroups();
+  const isGroupFavorite = isFavorite(groupId);
   const isPending = isPendingAdd || isPendingRemove;
 
   return (
     <FavoriteButton 
       groupId={groupId}
-      isFavorite={isFavorite}
-      isLoading={isLoading || isPending}
-      onToggle={() => toggleFavorite(groupId, isFavorite)}
+      isFavorite={isGroupFavorite}
+      isLoading={isPending}
+      onToggle={() => toggleFavorite(groupId, isGroupFavorite)}
       size="default"
     />
   );

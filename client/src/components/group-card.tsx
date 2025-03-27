@@ -13,7 +13,9 @@ export default function GroupCard({
   onClick,
   showFavoriteButton = true
 }: GroupCardProps) {
-  const memberCount = group.memberCount || 0;
+  // Use a default member count since the actual member count might not be available in the Group object
+  // In a real implementation, you would get this from the group.members.length
+  const memberCount = 0;
   const { useIsFavorite, toggleFavorite, isPendingAdd, isPendingRemove } = useFavoriteGroups();
 
   return (
@@ -28,16 +30,7 @@ export default function GroupCard({
         </div>
         {showFavoriteButton && (
           <div onClick={(e) => e.stopPropagation()}>
-            <FavoriteButton 
-              groupId={group.id}
-              isFavorite={false} // Initial state, will be updated through the hook
-              isLoading={false}
-              onToggle={() => {
-                const { toggleFavorite } = useFavoriteGroups();
-                toggleFavorite(group.id, false);
-              }}
-              size="sm"
-            />
+            <GroupFavoriteButton groupId={group.id} />
           </div>
         )}
       </div>
@@ -69,17 +62,18 @@ export default function GroupCard({
 
 // GroupFavoriteButton component to handle favorite status for a group
 function GroupFavoriteButton({ groupId }: { groupId: number }) {
-  const { useIsFavorite, toggleFavorite, isPendingAdd, isPendingRemove } = useFavoriteGroups();
-  const { data, isLoading } = useIsFavorite(groupId);
-  const isFavorite = data?.isFavorite || false;
+  const { isFavorite, toggleFavorite, isPendingAdd, isPendingRemove } = useFavoriteGroups();
+  
+  // Use the isFavorite function to check if this group is favorited
+  const isGroupFavorite = isFavorite(groupId);
   const isPending = isPendingAdd || isPendingRemove;
 
   return (
     <FavoriteButton 
       groupId={groupId}
-      isFavorite={isFavorite}
-      isLoading={isLoading || isPending}
-      onToggle={() => toggleFavorite(groupId, isFavorite)}
+      isFavorite={isGroupFavorite}
+      isLoading={isPending}
+      onToggle={() => toggleFavorite(groupId, isGroupFavorite)}
       size="sm"
     />
   );
