@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { useNotificationPreferences } from "@/hooks/use-notification-preferences";
+import { PrayerRemindersCard } from "@/components/prayer-reminders-card";
 import Header from "@/components/header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
   BellOff,
   AlertCircle,
   Loader2,
+  Clock,
 } from "lucide-react";
 
 import {
@@ -206,6 +208,14 @@ export default function SettingsPage() {
                     >
                       <Shield className="h-4 w-4 mr-2" />
                       Privacy
+                    </Button>
+                    <Button
+                      variant={activeTab === "reminders" ? "secondary" : "ghost"}
+                      onClick={() => setActiveTab("reminders")}
+                      className="justify-start px-3 py-2 h-auto font-normal"
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Prayer Reminders
                     </Button>
                   </div>
                 </CardContent>
@@ -805,6 +815,10 @@ export default function SettingsPage() {
                     </div>
                   </CardContent>
                 </Card>
+              )}
+              
+              {activeTab === "reminders" && (
+                <PrayerRemindersCard />
               )}
             </div>
           </div>
