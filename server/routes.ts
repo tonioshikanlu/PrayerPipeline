@@ -2,7 +2,8 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
-import { subscribeUser, unsubscribeUser, getVapidPublicKey } from "./push-notifications";
+import { db } from "./db";
+import { subscribeUser, unsubscribeUser, getVapidPublicKey, schedulePrayerReminderNotification } from "./push-notifications";
 import {
   insertGroupSchema,
   insertPrayerRequestSchema,
@@ -14,7 +15,9 @@ import {
   insertOrganizationMemberSchema,
   insertMeetingSchema,
   insertMeetingNotesSchema,
+  insertPrayerReminderSchema,
   prayerRequests,
+  prayerReminders,
   users,
   meetings,
   meetingNotes,
@@ -1567,6 +1570,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/push/vapid-public-key", getVapidPublicKey);
   app.post("/api/push/subscribe", isAuthenticated, subscribeUser);
   app.post("/api/push/unsubscribe", isAuthenticated, unsubscribeUser);
+  
+  // Prayer Reminder Routes
+  app.get("/api/prayer-reminders", isAuthenticated, async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const reminders = await db
+        .select()
+        .from(prayerReminders)
+        .where(eq(prayerReminders.userId, req.user.id));
+      
+      res.json(reminders);
+    } catch (error) {
+      console.error("Error getting prayer reminders:", error);
+      res.status(500).json({ message: "Failed to get prayer reminders" });
+    }
+  });
+  
+  app.post("/api/prayer-reminders", isAuthenticated, async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      const reminderData = insertPrayerReminderSchema.parse({
+        ...req.body,
+        userId: req.user.id
+      });
+      
+      // Handle recurring days as JSON
+      if (reminderData.recurringDays && !reminderData.isRecurring) {
+        reminderData.isRecurring = true;
+      }
+      
+      if (reminderData.isRecurring && Array.isArray(reminderData.recurringDays)) {
+        reminderData.recurringDays = JSON.stringify(reminderData.recurringDays);
+      }
+      
+      const [reminder] = await db
+        .insert(prayerReminders)
+        .values(reminderData)
+        .returning();
+      
+      // Schedule the notification
+      schedulePrayerReminderNotification(req.user.id, reminder);
+      
+      res.status(201).json(reminder);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.put("/api/prayer-reminders/:id", isAuthenticated, async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const reminderId = parseInt(req.params.id);
+    if (isNaN(reminderId)) {
+      return res.status(400).json({ message: "Invalid reminder ID" });
+    }
+    
+    try {
+      // Check if the reminder exists and belongs to the user
+      const [existingReminder] = await db
+        .select()
+        .from(prayerReminders)
+        .where(and(
+          eq(prayerReminders.id, reminderId),
+          eq(prayerReminders.userId, req.user.id)
+        ));
+      
+      if (!existingReminder) {
+        return res.status(404).json({ message: "Prayer reminder not found" });
+      }
+      
+      const updates = insertPrayerReminderSchema.partial().parse(req.body);
+      
+      // Handle recurring days as JSON
+      if (updates.recurringDays && !updates.isRecurring) {
+        updates.isRecurring = true;
+      }
+      
+      if (updates.isRecurring && Array.isArray(updates.recurringDays)) {
+        updates.recurringDays = JSON.stringify(updates.recurringDays);
+      }
+      
+      // We don't need to explicitly set updatedAt as it's handled by the database
+      
+      const [updatedReminder] = await db
+        .update(prayerReminders)
+        .set(updates)
+        .where(eq(prayerReminders.id, reminderId))
+        .returning();
+      
+      // Reschedule the notification with updated settings
+      schedulePrayerReminderNotification(req.user.id, updatedReminder);
+      
+      res.json(updatedReminder);
+    } catch (error) {
+      next(error);
+    }
+  });
+  
+  app.delete("/api/prayer-reminders/:id", isAuthenticated, async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const reminderId = parseInt(req.params.id);
+    if (isNaN(reminderId)) {
+      return res.status(400).json({ message: "Invalid reminder ID" });
+    }
+    
+    try {
+      // Check if the reminder exists and belongs to the user
+      const [existingReminder] = await db
+        .select()
+        .from(prayerReminders)
+        .where(and(
+          eq(prayerReminders.id, reminderId),
+          eq(prayerReminders.userId, req.user.id)
+        ));
+      
+      if (!existingReminder) {
+        return res.status(404).json({ message: "Prayer reminder not found" });
+      }
+      
+      await db
+        .delete(prayerReminders)
+        .where(eq(prayerReminders.id, reminderId));
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting prayer reminder:", error);
+      res.status(500).json({ message: "Failed to delete prayer reminder" });
+    }
+  });
 
   // Password reset routes
   app.post("/api/forgot-password", async (req, res, next) => {

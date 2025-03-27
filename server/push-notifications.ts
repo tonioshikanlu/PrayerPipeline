@@ -2,7 +2,7 @@ import webpush from 'web-push';
 import { storage } from './storage';
 import { Request, Response } from 'express';
 import { db } from './db';
-import { subscriptions } from '@shared/schema';
+import { subscriptions, PrayerReminder } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 
 // Generate VAPID keys for web push notifications
@@ -166,4 +166,69 @@ export async function sendGroupNotification(groupId: number, exceptUserId: numbe
 // VAPID public key getter - for the frontend to use
 export function getVapidPublicKey(req: Request, res: Response) {
   res.json({ publicKey: vapidKeys.publicKey });
+}
+
+// Function to schedule a prayer reminder notification
+export async function schedulePrayerReminderNotification(userId: number, reminder: PrayerReminder): Promise<boolean> {
+  try {
+    // Convert time string to Date object for today
+    const now = new Date();
+    const reminderTimeStr = reminder.reminderTime.toString(); // "HH:MM:SS"
+    const [hours, minutes] = reminderTimeStr.split(':').map(Number);
+    
+    let targetDate = new Date(now);
+    targetDate.setHours(hours, minutes, 0, 0);
+    
+    // If the time has already passed today, schedule for tomorrow
+    if (targetDate.getTime() < now.getTime()) {
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+    
+    // Check if this is a recurring reminder and if it should be scheduled today
+    if (reminder.isRecurring && reminder.recurringDays) {
+      const recurringDays = JSON.parse(reminder.recurringDays) as string[];
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const currentDayName = dayNames[targetDate.getDay()].toLowerCase();
+      
+      // If today is not in the recurring days, find the next valid day
+      if (!recurringDays.includes(currentDayName)) {
+        let daysToAdd = 1;
+        let nextDayName = dayNames[(targetDate.getDay() + daysToAdd) % 7].toLowerCase();
+        
+        // Find the next valid day
+        while (!recurringDays.includes(nextDayName) && daysToAdd < 7) {
+          daysToAdd++;
+          nextDayName = dayNames[(targetDate.getDay() + daysToAdd) % 7].toLowerCase();
+        }
+        
+        // Adjust the target date to the next valid day
+        targetDate.setDate(targetDate.getDate() + daysToAdd);
+      }
+    }
+    
+    // Check if the reminder is still active (activeUntil not passed)
+    if (reminder.activeUntil && new Date(reminder.activeUntil) < targetDate) {
+      return false; // Don't schedule if the reminder has expired
+    }
+    
+    // Calculate milliseconds until the notification should be sent
+    const timeUntilNotification = targetDate.getTime() - now.getTime();
+    
+    // Schedule the notification
+    setTimeout(() => {
+      sendPushNotification(
+        userId,
+        reminder.title,
+        reminder.description || 'Time to pray!',
+        '/prayer-requests'
+      ).catch(err => console.error('Error sending prayer reminder notification:', err));
+    }, timeUntilNotification);
+    
+    console.log(`Prayer reminder "${reminder.title}" scheduled for ${targetDate.toLocaleString()} (in ${Math.round(timeUntilNotification / 60000)} minutes)`);
+    
+    return true;
+  } catch (error) {
+    console.error('Error scheduling prayer reminder notification:', error);
+    return false;
+  }
 }

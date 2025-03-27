@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, time } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -465,3 +465,32 @@ export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
 
 export type MeetingNote = typeof meetingNotes.$inferSelect;
 export type InsertMeetingNote = z.infer<typeof insertMeetingNotesSchema>;
+
+// Prayer Reminders table
+export const prayerReminders = pgTable("prayer_reminders", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  reminderTime: time("reminder_time").notNull(), // Time of day for reminder
+  isRecurring: boolean("is_recurring").default(false).notNull(),
+  recurringDays: text("recurring_days"), // JSON string of days: ["monday", "wednesday", "friday"] etc.
+  activeUntil: timestamp("active_until"), // When to stop sending reminders
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+});
+
+export const insertPrayerReminderSchema = createInsertSchema(prayerReminders).pick({
+  userId: true,
+  title: true,
+  description: true,
+  reminderTime: true,
+  isRecurring: true,
+  recurringDays: true,
+  activeUntil: true,
+  isActive: true,
+});
+
+export type PrayerReminder = typeof prayerReminders.$inferSelect;
+export type InsertPrayerReminder = z.infer<typeof insertPrayerReminderSchema>;
