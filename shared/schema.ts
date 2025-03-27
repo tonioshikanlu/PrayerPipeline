@@ -78,13 +78,17 @@ export const prayingFor = pgTable("praying_for", {
 });
 
 // Zod schemas
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  name: true,
-  email: true,
-  role: true,
-});
+export const insertUserSchema = createInsertSchema(users)
+  .pick({
+    username: true,
+    password: true,
+    name: true,
+    email: true,
+    role: true,
+  })
+  .extend({
+    email: z.string().email("Please enter a valid email address"),
+  });
 
 export const insertGroupSchema = createInsertSchema(groups).pick({
   name: true,
@@ -160,7 +164,6 @@ export const loginSchema = z.object({
 export type LoginData = z.infer<typeof loginSchema>;
 
 export const registerSchema = insertUserSchema.extend({
-  email: z.string().email("Please enter a valid email address"),
   confirmPassword: z.string().min(1, "Please confirm your password"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
