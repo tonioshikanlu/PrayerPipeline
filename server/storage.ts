@@ -1928,25 +1928,209 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getPrayerRequest(id: number): Promise<PrayerRequest | undefined> {
-    const result = await db.select()
-      .from(prayerRequests)
-      .where(eq(prayerRequests.id, id));
-    
-    return result[0];
+    try {
+      // Use raw SQL with explicit column selection to handle missing columns
+      const result = await db.execute(sql`
+        SELECT 
+          id, title, group_id, user_id, description, status, created_at, updated_at,
+          COALESCE(is_stale, false) as is_stale,
+          follow_up_date,
+          urgency,
+          is_anonymous
+        FROM prayer_requests
+        WHERE id = ${id}
+      `);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const row = result.rows[0];
+      
+      // Type assertions for the expected types
+      const prayerId = row.id as number;
+      const title = row.title as string;
+      const groupId = row.group_id as number;
+      const userId = row.user_id as number;
+      const description = row.description as string;
+      const status = row.status as "waiting" | "answered" | "declined";
+      const createdAt = new Date(row.created_at as string);
+      const updatedAt = new Date(row.updated_at as string);
+      const isStale = (row.is_stale as boolean) === true;
+      const followUpDate = row.follow_up_date ? new Date(row.follow_up_date as string) : null;
+      const urgency = (row.urgency as "low" | "medium" | "high") || "medium";
+      const isAnonymous = (row.is_anonymous as boolean) || false;
+      
+      return {
+        id: prayerId,
+        title,
+        groupId,
+        userId,
+        content: description, // Map description to content for backward compatibility
+        description,
+        status,
+        createdAt,
+        updatedAt,
+        isStale,
+        followUpDate,
+        urgency,
+        isAnonymous
+      } as PrayerRequest;
+    } catch (error) {
+      console.error("Error in getPrayerRequest:", error);
+      
+      // Fall back to standard Drizzle query if raw SQL fails
+      const result = await db.select()
+        .from(prayerRequests)
+        .where(eq(prayerRequests.id, id));
+      
+      if (result.length === 0) {
+        return undefined;
+      }
+      
+      // Add missing properties with default values
+      const request = result[0];
+      return {
+        ...request,
+        isStale: request.isStale ?? false,
+        followUpDate: request.followUpDate ?? null,
+        urgency: request.urgency ?? "medium",
+        isAnonymous: request.isAnonymous ?? false,
+        content: request.description // Ensure content is set for backward compatibility
+      } as PrayerRequest;
+    }
   }
   
   async getGroupPrayerRequests(groupId: number): Promise<PrayerRequest[]> {
-    return await db.select()
-      .from(prayerRequests)
-      .where(eq(prayerRequests.groupId, groupId))
-      .orderBy(desc(prayerRequests.createdAt));
+    try {
+      // Use raw SQL with a fallback for missing columns
+      const result = await db.execute(sql`
+        SELECT 
+          id, title, group_id, user_id, description, status, created_at, updated_at,
+          COALESCE(is_stale, false) as is_stale,
+          follow_up_date,
+          urgency,
+          is_anonymous
+        FROM prayer_requests
+        WHERE group_id = ${groupId}
+        ORDER BY created_at DESC
+      `);
+      
+      // Transform the raw results to match the PrayerRequest type
+      return result.rows.map(row => {
+        // Type assertions for the expected types
+        const id = row.id as number;
+        const title = row.title as string;
+        const groupId = row.group_id as number;
+        const userId = row.user_id as number;
+        const description = row.description as string;
+        const status = row.status as "waiting" | "answered" | "declined";
+        const createdAt = new Date(row.created_at as string);
+        const updatedAt = new Date(row.updated_at as string);
+        const isStale = (row.is_stale as boolean) === true;
+        const followUpDate = row.follow_up_date ? new Date(row.follow_up_date as string) : null;
+        const urgency = (row.urgency as "low" | "medium" | "high") || "medium";
+        const isAnonymous = (row.is_anonymous as boolean) || false;
+        
+        return {
+          id,
+          title,
+          groupId,
+          userId,
+          content: description, // Map description to content for backward compatibility
+          description,
+          status,
+          createdAt,
+          updatedAt,
+          isStale,
+          followUpDate,
+          urgency,
+          isAnonymous
+        } as PrayerRequest;
+      });
+    } catch (error) {
+      console.error("Error in getGroupPrayerRequests:", error);
+      
+      // If the query fails due to missing columns, fall back to a simpler query
+      const requests = await db.select()
+        .from(prayerRequests)
+        .where(eq(prayerRequests.groupId, groupId))
+        .orderBy(desc(prayerRequests.createdAt));
+      
+      // Add missing properties with default values
+      return requests.map(request => ({
+        ...request,
+        isStale: request.isStale ?? false,
+        followUpDate: request.followUpDate ?? null,
+        content: request.description // Ensure content is set for backward compatibility
+      }));
+    }
   }
   
   async getUserPrayerRequests(userId: number): Promise<PrayerRequest[]> {
-    return await db.select()
-      .from(prayerRequests)
-      .where(eq(prayerRequests.userId, userId))
-      .orderBy(desc(prayerRequests.createdAt));
+    try {
+      // Use raw SQL with a fallback for missing columns
+      const result = await db.execute(sql`
+        SELECT 
+          id, title, group_id, user_id, description, status, created_at, updated_at,
+          COALESCE(is_stale, false) as is_stale,
+          follow_up_date,
+          urgency,
+          is_anonymous
+        FROM prayer_requests
+        WHERE user_id = ${userId}
+        ORDER BY created_at DESC
+      `);
+      
+      // Transform the raw results to match the PrayerRequest type
+      return result.rows.map(row => {
+        // Type assertions for the expected types
+        const id = row.id as number;
+        const title = row.title as string;
+        const groupId = row.group_id as number;
+        const userId = row.user_id as number;
+        const description = row.description as string;
+        const status = row.status as "waiting" | "answered" | "declined";
+        const createdAt = new Date(row.created_at as string);
+        const updatedAt = new Date(row.updated_at as string);
+        const isStale = (row.is_stale as boolean) === true;
+        const followUpDate = row.follow_up_date ? new Date(row.follow_up_date as string) : null;
+        const urgency = (row.urgency as "low" | "medium" | "high") || "medium";
+        const isAnonymous = (row.is_anonymous as boolean) || false;
+        
+        return {
+          id,
+          title,
+          groupId,
+          userId,
+          content: description, // Map description to content for backward compatibility
+          description,
+          status,
+          createdAt,
+          updatedAt,
+          isStale,
+          followUpDate,
+          urgency,
+          isAnonymous
+        } as PrayerRequest;
+      });
+    } catch (error) {
+      console.error("Error in getUserPrayerRequests:", error);
+      
+      // If the query fails due to missing columns, fall back to a simpler query
+      const requests = await db.select()
+        .from(prayerRequests)
+        .where(eq(prayerRequests.userId, userId))
+        .orderBy(desc(prayerRequests.createdAt));
+      
+      // Add missing properties with default values
+      return requests.map(request => ({
+        ...request,
+        isStale: request.isStale ?? false,
+        followUpDate: request.followUpDate ?? null,
+        content: request.description // Ensure content is set for backward compatibility
+      }));
+    }
   }
   
   async getRecentPrayerRequests(userId: number, limit = 5): Promise<PrayerRequest[]> {
@@ -1959,20 +2143,49 @@ export class DatabaseStorage implements IStorage {
         return [];
       }
       
-      // Get prayer requests from those groups
-      // Use raw SQL query to ensure only the columns that exist are selected
+      // Get prayer requests from those groups with explicit columns
       const result = await db.execute(
-        sql`SELECT * FROM prayer_requests WHERE group_id IN (${sql.join(groupIds)}) 
-            ORDER BY created_at DESC LIMIT ${limit}`
+        sql`SELECT 
+          id, title, group_id, user_id, description, status, created_at, updated_at,
+          COALESCE(is_stale, false) as is_stale,
+          follow_up_date,
+          urgency,
+          is_anonymous
+        FROM prayer_requests 
+        WHERE group_id IN (${sql.join(groupIds)}) 
+        ORDER BY created_at DESC LIMIT ${limit}`
       );
       
-      // Transform the raw results to PrayerRequest objects
+      // Transform the raw results to match the PrayerRequest type
       return result.rows.map(row => {
-        // Add fallback values for potentially missing columns
+        // Type assertions for the expected types
+        const id = row.id as number;
+        const title = row.title as string;
+        const groupId = row.group_id as number;
+        const userId = row.user_id as number;
+        const description = row.description as string;
+        const status = row.status as "waiting" | "answered" | "declined";
+        const createdAt = new Date(row.created_at as string);
+        const updatedAt = new Date(row.updated_at as string);
+        const isStale = (row.is_stale as boolean) === true;
+        const followUpDate = row.follow_up_date ? new Date(row.follow_up_date as string) : null;
+        const urgency = (row.urgency as "low" | "medium" | "high") || "medium";
+        const isAnonymous = (row.is_anonymous as boolean) || false;
+        
         return {
-          ...row,
-          followUpDate: row.follow_up_date || null,
-          isStale: row.is_stale || false
+          id,
+          title,
+          groupId,
+          userId,
+          content: description, // Map description to content for backward compatibility
+          description,
+          status,
+          createdAt,
+          updatedAt,
+          isStale,
+          followUpDate,
+          urgency,
+          isAnonymous
         } as PrayerRequest;
       });
     } catch (error) {
