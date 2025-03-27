@@ -12,7 +12,10 @@ import {
   resetPasswordSchema,
   insertOrganizationSchema,
   insertOrganizationMemberSchema,
+  prayerRequests,
+  users,
 } from "@shared/schema";
+import { sql, and, eq, lt, isNull } from "drizzle-orm";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
@@ -1502,6 +1505,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Check for stale prayer requests (admin only)
+  app.post("/api/admin/check-stale-requests", hasRole(["admin"]), async (req, res) => {
+    try {
+      const updatedCount = await storage.checkAndUpdateStalePrayerRequests();
+      res.json({ 
+        success: true, 
+        message: `Checked prayer requests and marked ${updatedCount} as stale.` 
+      });
+    } catch (error) {
+      console.error("Error checking stale prayer requests:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "An error occurred while checking stale prayer requests."
+      });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  // Schedule a daily check for stale prayer requests
+  setInterval(async () => {
+    try {
+      const count = await storage.checkAndUpdateStalePrayerRequests();
+      if (count > 0) {
+        console.log(`[${new Date().toISOString()}] Marked ${count} prayer requests as stale`);
+      }
+    } catch (error) {
+      console.error("Error in scheduled stale request check:", error);
+    }
+  }, 1000 * 60 * 60 * 24); // Run once every 24 hours
+  
   return httpServer;
 }

@@ -88,6 +88,8 @@ export const prayerRequests = pgTable("prayer_requests", {
   urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium").notNull(),
   isAnonymous: boolean("is_anonymous").default(false).notNull(),
   status: text("status", { enum: ["waiting", "answered", "declined"] }).default("waiting").notNull(),
+  followUpDate: timestamp("follow_up_date"),
+  isStale: boolean("is_stale").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -231,6 +233,8 @@ export const insertPrayerRequestSchema = createInsertSchema(prayerRequests).pick
   urgency: true,
   isAnonymous: true,
   status: true,
+  followUpDate: true,
+  isStale: true,
 });
 
 export const insertCommentSchema = createInsertSchema(comments).pick({

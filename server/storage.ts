@@ -85,6 +85,7 @@ export interface IStorage {
   getRecentPrayerRequests(userId: number, limit?: number): Promise<PrayerRequest[]>;
   updatePrayerRequest(id: number, request: Partial<InsertPrayerRequest>): Promise<PrayerRequest | undefined>;
   deletePrayerRequest(id: number): Promise<boolean>;
+  checkAndUpdateStalePrayerRequests(): Promise<number>;
   
   // Comments
   createComment(comment: InsertComment): Promise<Comment>;
@@ -610,13 +611,18 @@ export class MemStorage implements IStorage {
     const id = this.prayerRequestIdCounter++;
     const now = new Date();
     const request: PrayerRequest = {
-      ...insertRequest,
       id, 
-      createdAt: now,
-      updatedAt: now,
-      status: insertRequest.status || "waiting",
+      groupId: insertRequest.groupId,
+      userId: insertRequest.userId,
+      title: insertRequest.title,
+      description: insertRequest.description,
       urgency: insertRequest.urgency || "medium",
-      isAnonymous: insertRequest.isAnonymous || false
+      isAnonymous: insertRequest.isAnonymous || false,
+      status: insertRequest.status || "waiting",
+      followUpDate: insertRequest.followUpDate !== undefined ? insertRequest.followUpDate : null,
+      isStale: insertRequest.isStale || false,
+      createdAt: now,
+      updatedAt: now
     };
     
     this.prayerRequestsMap.set(id, request);
@@ -1028,6 +1034,45 @@ export class MemStorage implements IStorage {
     
     this.groupNotificationPreferencesMap.set(existing.id, updatedPrefs);
     return updatedPrefs;
+  }
+
+  // Stale prayer request management  
+  async checkAndUpdateStalePrayerRequests(): Promise<number> {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Find prayer requests with a follow-up date in the past that haven't been marked as stale
+    const staleRequests = Array.from(this.prayerRequestsMap.values())
+      .filter(request => 
+        !request.isStale && 
+        request.status === "waiting" && 
+        request.followUpDate !== null && 
+        request.followUpDate < today
+      );
+    
+    if (staleRequests.length === 0) {
+      return 0;
+    }
+    
+    // Mark requests as stale
+    for (const request of staleRequests) {
+      const updatedRequest = {
+        ...request,
+        isStale: true
+      };
+      
+      this.prayerRequestsMap.set(request.id, updatedRequest);
+      
+      // Create notification for the prayer request owner
+      await this.createNotification({
+        userId: request.userId,
+        type: "status_update",
+        message: `Your prayer request "${request.title}" is now stale. Please update its status.`,
+        referenceId: request.id,
+      });
+    }
+    
+    return staleRequests.length;
   }
 }
 
@@ -1534,12 +1579,17 @@ export class DatabaseStorage implements IStorage {
   async createPrayerRequest(insertRequest: InsertPrayerRequest): Promise<PrayerRequest> {
     const now = new Date();
     const requestToInsert = {
-      ...insertRequest,
-      createdAt: now,
-      updatedAt: now,
-      status: insertRequest.status || "waiting",
+      groupId: insertRequest.groupId,
+      userId: insertRequest.userId,
+      title: insertRequest.title,
+      description: insertRequest.description,
       urgency: insertRequest.urgency || "medium",
-      isAnonymous: insertRequest.isAnonymous || false
+      isAnonymous: insertRequest.isAnonymous || false,
+      status: insertRequest.status || "waiting",
+      followUpDate: insertRequest.followUpDate !== undefined ? insertRequest.followUpDate : null,
+      isStale: insertRequest.isStale || false,
+      createdAt: now,
+      updatedAt: now
     };
     
     const result = await db.insert(prayerRequests).values(requestToInsert).returning();
@@ -1958,6 +2008,45 @@ export class DatabaseStorage implements IStorage {
       .returning();
     
     return result[0];
+  }
+
+  // Stale prayer request management
+  async checkAndUpdateStalePrayerRequests(): Promise<number> {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Find prayer requests with a follow-up date in the past that haven't been marked as stale
+    const staleRequests = await db.select()
+      .from(prayerRequests)
+      .where(
+        and(
+          eq(prayerRequests.isStale, false),
+          eq(prayerRequests.status, "waiting"),
+          sql`${prayerRequests.followUpDate} IS NOT NULL`,
+          sql`${prayerRequests.followUpDate} < ${today}`
+        )
+      );
+    
+    if (staleRequests.length === 0) {
+      return 0;
+    }
+    
+    // Mark requests as stale
+    for (const request of staleRequests) {
+      await db.update(prayerRequests)
+        .set({ isStale: true })
+        .where(eq(prayerRequests.id, request.id));
+      
+      // Create notification for the prayer request owner
+      await this.createNotification({
+        userId: request.userId,
+        type: "status_update",
+        message: `Your prayer request "${request.title}" is now stale. Please update its status.`,
+        referenceId: request.id,
+      });
+    }
+    
+    return staleRequests.length;
   }
 }
 
