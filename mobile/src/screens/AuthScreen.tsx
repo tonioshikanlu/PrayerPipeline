@@ -1,303 +1,300 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@navigation/AppNavigator';
-import { Button, Text, TextInput, Surface, useTheme } from 'react-native-paper';
-import { useForm, Controller } from 'react-hook-form';
+import {
+  Text,
+  TextInput,
+  Button,
+  Portal,
+  Dialog,
+  useTheme,
+  Card,
+  SegmentedButtons,
+  HelperText,
+  ActivityIndicator,
+} from 'react-native-paper';
 import { useAuth } from '@hooks/useAuth';
 
-type LoginInputs = {
-  username: string;
-  password: string;
-};
-
-type RegisterInputs = {
-  username: string;
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-};
-
 export default function AuthScreen() {
-  const [isLogin, setIsLogin] = useState(true);
-  const theme = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { loginMutation, registerMutation } = useAuth();
+  const theme = useTheme();
+  const { user, isLoading, loginMutation, registerMutation } = useAuth();
   
-  // Login form
-  const loginForm = useForm<LoginInputs>({
-    defaultValues: {
-      username: '',
-      password: '',
-    },
-  });
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   
-  // Register form
-  const registerForm = useForm<RegisterInputs>({
-    defaultValues: {
-      username: '',
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-    },
-  });
+  // Login form state
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginPasswordVisible, setLoginPasswordVisible] = useState(false);
   
-  const onSubmitLogin = async (data: LoginInputs) => {
-    try {
-      await loginMutation.mutateAsync(data);
-    } catch (error) {
-      console.error('Login error:', error);
+  // Register form state
+  const [registerName, setRegisterName] = useState('');
+  const [registerUsername, setRegisterUsername] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState('');
+  const [registerPasswordVisible, setRegisterPasswordVisible] = useState(false);
+  const [registerConfirmPasswordVisible, setRegisterConfirmPasswordVisible] = useState(false);
+  
+  // Error handling
+  const [errorDialogVisible, setErrorDialogVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigation.navigate('Main');
+    }
+  }, [user, navigation]);
+
+  // Validate registration form
+  const validateRegisterPassword = () => {
+    if (registerPassword.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    return '';
+  };
+
+  const validateConfirmPassword = () => {
+    if (registerConfirmPassword && registerPassword !== registerConfirmPassword) {
+      return 'Passwords do not match';
+    }
+    return '';
+  };
+
+  const isLoginFormValid = loginUsername.trim() && loginPassword.trim();
+  
+  const isRegisterFormValid = 
+    registerName.trim() && 
+    registerUsername.trim() && 
+    registerEmail.trim() && 
+    registerPassword.length >= 8 && 
+    registerPassword === registerConfirmPassword;
+
+  const handleLogin = () => {
+    if (isLoginFormValid) {
+      loginMutation.mutate(
+        { username: loginUsername, password: loginPassword },
+        {
+          onError: (error) => {
+            setErrorMessage(error.message || 'Login failed. Please check your credentials.');
+            setErrorDialogVisible(true);
+          }
+        }
+      );
     }
   };
-  
-  const onSubmitRegister = async (data: RegisterInputs) => {
-    // Validate passwords match
-    if (data.password !== data.confirmPassword) {
-      registerForm.setError('confirmPassword', {
-        type: 'manual',
-        message: 'Passwords do not match',
-      });
-      return;
-    }
-    
-    // Register the user
-    try {
-      const { confirmPassword, ...registerData } = data;
-      await registerMutation.mutateAsync(registerData);
-    } catch (error) {
-      console.error('Registration error:', error);
+
+  const handleRegister = () => {
+    if (isRegisterFormValid) {
+      registerMutation.mutate(
+        {
+          name: registerName,
+          username: registerUsername,
+          email: registerEmail,
+          password: registerPassword,
+        },
+        {
+          onError: (error) => {
+            setErrorMessage(error.message || 'Registration failed. Please try again.');
+            setErrorDialogVisible(true);
+          }
+        }
+      );
     }
   };
-  
-  const navigateToForgotPassword = () => {
-    navigation.navigate('ForgotPassword');
-  };
-  
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.contentContainer}>
-          {/* Hero section */}
-          <View style={styles.heroContainer}>
-            <Text variant="displaySmall" style={styles.title}>Prayer Pipeline</Text>
-            <Text variant="bodyLarge" style={styles.subtitle}>
-              Connect, Pray, Grow. Manage prayer requests and strengthen your spiritual community.
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.content}>
+          {/* App Logo and Title */}
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/app-logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text variant="headlineLarge" style={styles.appTitle}>
+              Prayer Pipeline
+            </Text>
+            <Text variant="bodyLarge" style={styles.appSubtitle}>
+              Connect, Share, and Pray Together
             </Text>
           </View>
           
-          {/* Form section */}
-          <Surface style={styles.formContainer}>
-            <View style={styles.tabContainer}>
-              <Button
-                mode={isLogin ? 'contained' : 'outlined'}
-                onPress={() => setIsLogin(true)}
-                style={styles.tabButton}
-              >
-                Login
-              </Button>
-              <Button
-                mode={!isLogin ? 'contained' : 'outlined'}
-                onPress={() => setIsLogin(false)}
-                style={styles.tabButton}
-              >
-                Register
-              </Button>
-            </View>
-            
-            {isLogin ? (
-              // Login Form
-              <View style={styles.form}>
-                <Controller
-                  control={loginForm.control}
-                  rules={{ required: 'Username is required' }}
-                  render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                    <>
-                      <TextInput
-                        label="Username"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        error={!!error}
-                        style={styles.input}
+          {/* Auth Card */}
+          <Card style={styles.authCard}>
+            <Card.Content>
+              <SegmentedButtons
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as 'login' | 'register')}
+                buttons={[
+                  { value: 'login', label: 'Login' },
+                  { value: 'register', label: 'Register' },
+                ]}
+                style={styles.tabButtons}
+              />
+              
+              {/* Login Form */}
+              {activeTab === 'login' && (
+                <View style={styles.formContainer}>
+                  <TextInput
+                    label="Username"
+                    value={loginUsername}
+                    onChangeText={setLoginUsername}
+                    mode="outlined"
+                    style={styles.input}
+                    autoCapitalize="none"
+                  />
+                  
+                  <TextInput
+                    label="Password"
+                    value={loginPassword}
+                    onChangeText={setLoginPassword}
+                    secureTextEntry={!loginPasswordVisible}
+                    right={
+                      <TextInput.Icon
+                        icon={loginPasswordVisible ? 'eye-off' : 'eye'}
+                        onPress={() => setLoginPasswordVisible(!loginPasswordVisible)}
                       />
-                      {error && <Text style={styles.errorText}>{error.message}</Text>}
-                    </>
-                  )}
-                  name="username"
-                />
-                
-                <Controller
-                  control={loginForm.control}
-                  rules={{ required: 'Password is required' }}
-                  render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                    <>
-                      <TextInput
-                        label="Password"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        secureTextEntry
-                        error={!!error}
-                        style={styles.input}
+                    }
+                    mode="outlined"
+                    style={styles.input}
+                  />
+                  
+                  <Button
+                    mode="text"
+                    onPress={() => navigation.navigate('ForgotPassword')}
+                    style={styles.forgotPasswordButton}
+                  >
+                    Forgot Password?
+                  </Button>
+                  
+                  <Button
+                    mode="contained"
+                    onPress={handleLogin}
+                    style={styles.submitButton}
+                    loading={loginMutation.isPending}
+                    disabled={!isLoginFormValid || loginMutation.isPending}
+                  >
+                    Login
+                  </Button>
+                </View>
+              )}
+              
+              {/* Register Form */}
+              {activeTab === 'register' && (
+                <View style={styles.formContainer}>
+                  <TextInput
+                    label="Full Name"
+                    value={registerName}
+                    onChangeText={setRegisterName}
+                    mode="outlined"
+                    style={styles.input}
+                  />
+                  
+                  <TextInput
+                    label="Username"
+                    value={registerUsername}
+                    onChangeText={setRegisterUsername}
+                    mode="outlined"
+                    style={styles.input}
+                    autoCapitalize="none"
+                  />
+                  
+                  <TextInput
+                    label="Email Address"
+                    value={registerEmail}
+                    onChangeText={setRegisterEmail}
+                    mode="outlined"
+                    style={styles.input}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                  
+                  <TextInput
+                    label="Password"
+                    value={registerPassword}
+                    onChangeText={setRegisterPassword}
+                    secureTextEntry={!registerPasswordVisible}
+                    right={
+                      <TextInput.Icon
+                        icon={registerPasswordVisible ? 'eye-off' : 'eye'}
+                        onPress={() => setRegisterPasswordVisible(!registerPasswordVisible)}
                       />
-                      {error && <Text style={styles.errorText}>{error.message}</Text>}
-                    </>
-                  )}
-                  name="password"
-                />
-                
-                <Button
-                  mode="text"
-                  onPress={navigateToForgotPassword}
-                  style={styles.forgotPasswordButton}
-                >
-                  Forgot Password?
-                </Button>
-                
-                <Button
-                  mode="contained"
-                  onPress={loginForm.handleSubmit(onSubmitLogin)}
-                  style={styles.submitButton}
-                  loading={loginMutation.isPending}
-                  disabled={loginMutation.isPending}
-                >
-                  Login
-                </Button>
-              </View>
-            ) : (
-              // Register Form
-              <View style={styles.form}>
-                <Controller
-                  control={registerForm.control}
-                  rules={{ required: 'Username is required' }}
-                  render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                    <>
-                      <TextInput
-                        label="Username"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        error={!!error}
-                        style={styles.input}
+                    }
+                    mode="outlined"
+                    style={styles.input}
+                  />
+                  {registerPassword ? (
+                    <HelperText type={validateRegisterPassword() ? 'error' : 'info'} visible={!!registerPassword}>
+                      {validateRegisterPassword() || 'Password strength: ' + (registerPassword.length >= 12 ? 'Strong' : registerPassword.length >= 8 ? 'Medium' : 'Weak')}
+                    </HelperText>
+                  ) : null}
+                  
+                  <TextInput
+                    label="Confirm Password"
+                    value={registerConfirmPassword}
+                    onChangeText={setRegisterConfirmPassword}
+                    secureTextEntry={!registerConfirmPasswordVisible}
+                    right={
+                      <TextInput.Icon
+                        icon={registerConfirmPasswordVisible ? 'eye-off' : 'eye'}
+                        onPress={() => setRegisterConfirmPasswordVisible(!registerConfirmPasswordVisible)}
                       />
-                      {error && <Text style={styles.errorText}>{error.message}</Text>}
-                    </>
-                  )}
-                  name="username"
-                />
-                
-                <Controller
-                  control={registerForm.control}
-                  rules={{ required: 'Name is required' }}
-                  render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                    <>
-                      <TextInput
-                        label="Full Name"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        error={!!error}
-                        style={styles.input}
-                      />
-                      {error && <Text style={styles.errorText}>{error.message}</Text>}
-                    </>
-                  )}
-                  name="name"
-                />
-                
-                <Controller
-                  control={registerForm.control}
-                  rules={{
-                    required: 'Email is required',
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: 'Invalid email address',
-                    },
-                  }}
-                  render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                    <>
-                      <TextInput
-                        label="Email"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        keyboardType="email-address"
-                        error={!!error}
-                        style={styles.input}
-                      />
-                      {error && <Text style={styles.errorText}>{error.message}</Text>}
-                    </>
-                  )}
-                  name="email"
-                />
-                
-                <Controller
-                  control={registerForm.control}
-                  rules={{
-                    required: 'Password is required',
-                    minLength: {
-                      value: 8,
-                      message: 'Password must be at least 8 characters',
-                    },
-                  }}
-                  render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                    <>
-                      <TextInput
-                        label="Password"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        secureTextEntry
-                        error={!!error}
-                        style={styles.input}
-                      />
-                      {error && <Text style={styles.errorText}>{error.message}</Text>}
-                    </>
-                  )}
-                  name="password"
-                />
-                
-                <Controller
-                  control={registerForm.control}
-                  rules={{ required: 'Please confirm your password' }}
-                  render={({ field: { onChange, onBlur, value }, fieldState: { error } }) => (
-                    <>
-                      <TextInput
-                        label="Confirm Password"
-                        value={value}
-                        onBlur={onBlur}
-                        onChangeText={onChange}
-                        secureTextEntry
-                        error={!!error}
-                        style={styles.input}
-                      />
-                      {error && <Text style={styles.errorText}>{error.message}</Text>}
-                    </>
-                  )}
-                  name="confirmPassword"
-                />
-                
-                <Button
-                  mode="contained"
-                  onPress={registerForm.handleSubmit(onSubmitRegister)}
-                  style={styles.submitButton}
-                  loading={registerMutation.isPending}
-                  disabled={registerMutation.isPending}
-                >
-                  Register
-                </Button>
-              </View>
-            )}
-          </Surface>
+                    }
+                    mode="outlined"
+                    style={styles.input}
+                  />
+                  {registerConfirmPassword ? (
+                    <HelperText type={validateConfirmPassword() ? 'error' : 'info'} visible={!!registerConfirmPassword}>
+                      {validateConfirmPassword() || 'Passwords match'}
+                    </HelperText>
+                  ) : null}
+                  
+                  <Button
+                    mode="contained"
+                    onPress={handleRegister}
+                    style={styles.submitButton}
+                    loading={registerMutation.isPending}
+                    disabled={!isRegisterFormValid || registerMutation.isPending}
+                  >
+                    Register
+                  </Button>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
         </View>
       </ScrollView>
+      
+      {/* Error Dialog */}
+      <Portal>
+        <Dialog visible={errorDialogVisible} onDismiss={() => setErrorDialogVisible(false)}>
+          <Dialog.Title>Error</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">{errorMessage}</Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setErrorDialogVisible(false)}>OK</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </KeyboardAvoidingView>
   );
 }
@@ -307,57 +304,55 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  scrollContainer: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollContent: {
     flexGrow: 1,
   },
-  contentContainer: {
+  content: {
     flex: 1,
-    padding: 20,
+    padding: 24,
   },
-  heroContainer: {
-    marginBottom: 30,
+  logoContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
+    marginBottom: 32,
+    marginTop: 32,
   },
-  title: {
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 16,
+  },
+  appTitle: {
+    textAlign: 'center',
     fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
+    marginBottom: 8,
   },
-  subtitle: {
+  appSubtitle: {
     textAlign: 'center',
-    marginHorizontal: 20,
+    opacity: 0.7,
+  },
+  authCard: {
+    marginBottom: 32,
+  },
+  tabButtons: {
+    marginBottom: 16,
   },
   formContainer: {
-    padding: 20,
-    borderRadius: 10,
-    elevation: 2,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  tabButton: {
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  form: {
-    width: '100%',
+    paddingVertical: 8,
   },
   input: {
-    marginBottom: 5,
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginBottom: 10,
+    marginBottom: 16,
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',
-    marginVertical: 10,
+    marginTop: -8,
+    marginBottom: 16,
   },
   submitButton: {
-    marginTop: 20,
+    marginTop: 8,
   },
 });
