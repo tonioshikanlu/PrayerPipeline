@@ -16,7 +16,7 @@ export default function GroupCard({
   // Use a default member count since the actual member count might not be available in the Group object
   // In a real implementation, you would get this from the group.members.length
   const memberCount = 0;
-  const { useIsFavorite, toggleFavorite, isPendingAdd, isPendingRemove } = useFavoriteGroups();
+  const { isFavorite, toggleFavorite, isPendingAdd, isPendingRemove } = useFavoriteGroups();
 
   return (
     <div 
