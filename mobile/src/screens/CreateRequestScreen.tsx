@@ -59,7 +59,12 @@ export default function CreateRequestScreen() {
       urgency: string;
       isPublic: boolean;
     }) => {
-      const res = await apiRequest('POST', '/api/requests', data);
+      const { groupId, ...requestData } = data;
+      const res = await apiRequest('POST', `/api/groups/${groupId}/requests`, {
+        ...requestData,
+        description: requestData.content,
+        isAnonymous: !requestData.isPublic,
+      });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to create prayer request' }));
         throw new Error(error.message || 'Failed to create prayer request');
