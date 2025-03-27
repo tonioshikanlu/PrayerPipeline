@@ -12,9 +12,11 @@ import GroupCard from "@/components/group-card";
 
 interface CategoryGroupsProps {
   currentOrganizationId?: number;
+  activeTab: string;
+  onChangeTab: (tab: string) => void;
 }
 
-export default function CategoryGroups({ currentOrganizationId }: CategoryGroupsProps) {
+export default function CategoryGroups({ currentOrganizationId, activeTab, onChangeTab }: CategoryGroupsProps) {
   const [_, navigate] = useLocation();
   const [activeCategory, setActiveCategory] = useState("all");
   
@@ -32,7 +34,24 @@ export default function CategoryGroups({ currentOrganizationId }: CategoryGroups
           return res.json();
         });
     },
-    enabled: !!currentOrganizationId,
+    enabled: !!currentOrganizationId && activeTab === "explore",
+  });
+
+  // Fetch user's groups
+  const {
+    data: userGroups,
+    isLoading: isLoadingUserGroups,
+  } = useQuery({
+    queryKey: ["/api/groups/user", currentOrganizationId],
+    queryFn: () => {
+      if (!currentOrganizationId) return Promise.resolve([]);
+      return fetch(`/api/groups/user?organizationId=${currentOrganizationId}`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch user groups');
+          return res.json();
+        });
+    },
+    enabled: !!currentOrganizationId && activeTab === "my-groups",
   });
 
   // Fetch groups by category when a category is selected
@@ -49,11 +68,21 @@ export default function CategoryGroups({ currentOrganizationId }: CategoryGroups
           return res.json();
         });
     },
-    enabled: activeCategory !== "all" && !!currentOrganizationId,
+    enabled: activeCategory !== "all" && !!currentOrganizationId && activeTab === "explore",
   });
 
-  const displayGroups = activeCategory === "all" ? allGroups : categoryGroups;
-  const isLoading = activeCategory === "all" ? isLoadingAllGroups : isLoadingCategoryGroups;
+  // Determine which groups to display
+  let displayGroups;
+  let isLoading;
+  
+  if (activeTab === "my-groups") {
+    displayGroups = userGroups;
+    isLoading = isLoadingUserGroups;
+  } else {
+    // For explore tab
+    displayGroups = activeCategory === "all" ? allGroups : categoryGroups;
+    isLoading = activeCategory === "all" ? isLoadingAllGroups : isLoadingCategoryGroups;
+  }
 
   const handleCategoryChange = (category: string) => {
     setActiveCategory(category);
@@ -61,35 +90,54 @@ export default function CategoryGroups({ currentOrganizationId }: CategoryGroups
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold mb-4">Explore Prayer Groups</h2>
-      
-      <Tabs defaultValue="all" onValueChange={handleCategoryChange} className="w-full">
-        <TabsList className="grid grid-cols-5 mb-6">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="health">Health</TabsTrigger>
-          <TabsTrigger value="family">Family</TabsTrigger>
-          <TabsTrigger value="career">Career</TabsTrigger>
-          <TabsTrigger value="relationship">Relationships</TabsTrigger>
+      <Tabs defaultValue={activeTab} onValueChange={onChangeTab} className="w-full">
+        <TabsList className="grid grid-cols-2 mb-6">
+          <TabsTrigger value="explore">Explore Groups</TabsTrigger>
+          <TabsTrigger value="my-groups">My Groups</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="mt-0">
-          <GroupsList groups={allGroups} isLoading={isLoadingAllGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
+        <TabsContent value="explore" className="mt-0">
+          <h2 className="text-2xl font-bold mb-4">Explore Prayer Groups</h2>
+          
+          <Tabs defaultValue="all" onValueChange={handleCategoryChange} className="w-full">
+            <TabsList className="grid grid-cols-5 mb-6">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="health">Health</TabsTrigger>
+              <TabsTrigger value="family">Family</TabsTrigger>
+              <TabsTrigger value="career">Career</TabsTrigger>
+              <TabsTrigger value="relationship">Relationships</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="all" className="mt-0">
+              <GroupsList groups={allGroups} isLoading={isLoadingAllGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
+            </TabsContent>
+            
+            <TabsContent value="health" className="mt-0">
+              <GroupsList groups={categoryGroups} isLoading={isLoadingCategoryGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
+            </TabsContent>
+            
+            <TabsContent value="family" className="mt-0">
+              <GroupsList groups={categoryGroups} isLoading={isLoadingCategoryGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
+            </TabsContent>
+            
+            <TabsContent value="career" className="mt-0">
+              <GroupsList groups={categoryGroups} isLoading={isLoadingCategoryGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
+            </TabsContent>
+            
+            <TabsContent value="relationship" className="mt-0">
+              <GroupsList groups={categoryGroups} isLoading={isLoadingCategoryGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
         
-        <TabsContent value="health" className="mt-0">
-          <GroupsList groups={categoryGroups} isLoading={isLoadingCategoryGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
-        </TabsContent>
-        
-        <TabsContent value="family" className="mt-0">
-          <GroupsList groups={categoryGroups} isLoading={isLoadingCategoryGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
-        </TabsContent>
-        
-        <TabsContent value="career" className="mt-0">
-          <GroupsList groups={categoryGroups} isLoading={isLoadingCategoryGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
-        </TabsContent>
-        
-        <TabsContent value="relationship" className="mt-0">
-          <GroupsList groups={categoryGroups} isLoading={isLoadingCategoryGroups} onGroupClick={(id) => navigate(`/groups/${id}`)} />
+        <TabsContent value="my-groups" className="mt-0">
+          <h2 className="text-2xl font-bold mb-4">My Prayer Groups</h2>
+          <GroupsList 
+            groups={userGroups} 
+            isLoading={isLoadingUserGroups} 
+            onGroupClick={(id) => navigate(`/groups/${id}`)}
+            emptyMessage="You haven't joined any groups yet."
+          />
         </TabsContent>
       </Tabs>
     </div>
@@ -99,11 +147,13 @@ export default function CategoryGroups({ currentOrganizationId }: CategoryGroups
 function GroupsList({ 
   groups, 
   isLoading, 
-  onGroupClick 
+  onGroupClick,
+  emptyMessage = "No groups found for this category."
 }: { 
   groups?: any[];
   isLoading: boolean;
   onGroupClick: (id: number) => void;
+  emptyMessage?: string;
 }) {
   if (isLoading) {
     return (
@@ -118,7 +168,7 @@ function GroupsList({
   if (!groups || groups.length === 0) {
     return (
       <div className="text-center py-10 bg-neutral-50 rounded-lg">
-        <p className="text-neutral-600">No groups found for this category.</p>
+        <p className="text-neutral-600">{emptyMessage}</p>
       </div>
     );
   }

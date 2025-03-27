@@ -9,7 +9,12 @@ import { useOrganizations } from "@/hooks/use-organizations";
 
 export default function ExploreGroupsPage() {
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("explore");
   const { currentOrganization } = useOrganizations();
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+  };
 
   return (
     <div>
@@ -20,10 +25,12 @@ export default function ExploreGroupsPage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
             <div>
               <h1 className="text-2xl font-bold font-heading text-neutral-800 mb-2">
-                Explore Prayer Groups
+                {activeTab === "explore" ? "Explore Prayer Groups" : "My Prayer Groups"}
               </h1>
               <p className="text-neutral-600">
-                Browse and join prayer groups organized by category
+                {activeTab === "explore" 
+                  ? "Browse and join prayer groups organized by category" 
+                  : "Manage your prayer groups and view activity"}
               </p>
             </div>
             <Button 
@@ -35,7 +42,11 @@ export default function ExploreGroupsPage() {
             </Button>
           </div>
 
-          <CategoryGroups currentOrganizationId={currentOrganization?.id} />
+          <CategoryGroups 
+            currentOrganizationId={currentOrganization?.id} 
+            activeTab={activeTab}
+            onChangeTab={handleTabChange}
+          />
         </div>
       </main>
 
