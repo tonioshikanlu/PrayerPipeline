@@ -143,6 +143,16 @@ export const subscriptions = pgTable("push_subscriptions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Table for mobile push notification tokens (Expo)
+export const pushTokens = pgTable("push_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text("token").notNull().unique(),
+  deviceType: text("device_type").notNull(), // 'ios', 'android', 'web'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastUsed: timestamp("last_used").defaultNow().notNull(),
+});
+
 // User notification preferences
 export const notificationPreferences = pgTable("notification_preferences", {
   id: serial("id").primaryKey(),
@@ -285,6 +295,12 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptions).pick({
   userAgent: true,
 });
 
+export const insertPushTokenSchema = createInsertSchema(pushTokens).pick({
+  userId: true,
+  token: true,
+  deviceType: true,
+});
+
 export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).pick({
   userId: true,
   token: true,
@@ -342,6 +358,9 @@ export type InsertGroupTag = z.infer<typeof insertGroupTagSchema>;
 
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+
+export type PushToken = typeof pushTokens.$inferSelect;
+export type InsertPushToken = z.infer<typeof insertPushTokenSchema>;
 
 export type Group = typeof groups.$inferSelect;
 export type InsertGroup = z.infer<typeof insertGroupSchema>;
