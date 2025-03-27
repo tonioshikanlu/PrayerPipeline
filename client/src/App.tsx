@@ -12,8 +12,11 @@ import SettingsPage from "@/pages/settings-page";
 import ExploreGroupsPage from "@/pages/explore-groups-page";
 import ForgotPasswordPage from "@/pages/forgot-password-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
+import OrganizationsPage from "@/pages/organizations-page";
+import OrganizationDetailsPage from "@/pages/organization-details-page";
 import { ProtectedRoute } from "./lib/protected-route";
 import { AuthProvider } from "./hooks/use-auth";
+import { OrganizationProvider } from "./hooks/use-organizations";
 
 function Router() {
   return (
@@ -24,6 +27,8 @@ function Router() {
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/explore" component={ExploreGroupsPage} />
+      <ProtectedRoute path="/organizations" component={() => <div className="container max-w-7xl py-10 pt-16 md:pt-24"><h1 className="text-3xl font-bold">Organizations</h1></div>} />
+      <ProtectedRoute path="/organizations/:organizationId" component={() => <div className="container max-w-7xl py-10 pt-16 md:pt-24"><h1 className="text-3xl font-bold">Organization Details</h1></div>} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
@@ -36,8 +41,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
-        <Toaster />
+        <OrganizationProvider>
+          <Router />
+          <Toaster />
+        </OrganizationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import NotificationsDropdown from "./notifications-dropdown";
+import OrganizationSelector from "./organization-selector";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,9 +80,16 @@ export default function Header() {
             >
               Explore Groups
             </a>
+            <a 
+              className="text-neutral-600 hover:text-primary font-medium cursor-pointer"
+              onClick={() => navigate("/organizations")}
+            >
+              Organizations
+            </a>
           </nav>
         </div>
         <div className="flex items-center space-x-4">
+          {user && <OrganizationSelector />}
           <NotificationsDropdown />
           
           <div className="relative" ref={userMenuRef}>
