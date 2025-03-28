@@ -1,73 +1,74 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform, SafeAreaView } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useNavigation } from './NavigationContext';
 
-interface TabItem {
-  name: string;
-  route: string;
-  icon: keyof typeof Feather.glyphMap;
+interface TabBarProps {
+  activeColor?: string;
+  inactiveColor?: string;
+  backgroundColor?: string;
 }
 
-const tabs: TabItem[] = [
-  { name: 'Home', route: 'Home', icon: 'home' },
-  { name: 'Groups', route: 'Groups', icon: 'users' },
-  { name: 'Requests', route: 'PrayerRequests', icon: 'list' },
-  { name: 'Organizations', route: 'Organizations', icon: 'briefcase' },
-  { name: 'Profile', route: 'Profile', icon: 'user' },
-];
+const TabBar: React.FC<TabBarProps> = ({ 
+  activeColor = '#6366F1', 
+  inactiveColor = '#9CA3AF',
+  backgroundColor = '#FFFFFF'
+}) => {
+  const { currentScreen, navigate } = useNavigation();
 
-const TabBar: React.FC = () => {
-  const { currentRoute, navigate } = useNavigation();
-  
+  const tabs = [
+    { name: 'Home', label: 'Home', icon: '🏠' },
+    { name: 'ExploreGroups', label: 'Groups', icon: '👥' },
+    { name: 'PrayerRequests', label: 'Prayers', icon: '🙏' },
+    { name: 'Organizations', label: 'Orgs', icon: '🏢' },
+    { name: 'Settings', label: 'Settings', icon: '⚙️' },
+  ];
+
   return (
-    <SafeAreaView style={{ backgroundColor: '#ffffff' }}>
-      <View style={styles.container}>
-        {tabs.map((tab) => (
+    <View style={[styles.container, { backgroundColor }]}>
+      {tabs.map((tab) => {
+        const isActive = currentScreen === tab.name;
+        return (
           <TouchableOpacity
-            key={tab.route}
+            key={tab.name}
             style={styles.tabButton}
-            onPress={() => navigate(tab.route)}
-            accessibilityRole="button"
-            accessibilityLabel={tab.name}
+            onPress={() => navigate(tab.name)}
           >
-            <Feather
-              name={tab.icon}
-              size={22}
-              color={currentRoute.name === tab.route ? '#3b82f6' : '#64748b'}
-            />
+            <Text style={styles.tabIcon}>{tab.icon}</Text>
             <Text
               style={[
-                styles.tabText,
-                { color: currentRoute.name === tab.route ? '#3b82f6' : '#64748b' }
+                styles.tabLabel,
+                { color: isActive ? activeColor : inactiveColor }
               ]}
             >
-              {tab.name}
+              {tab.label}
             </Text>
           </TouchableOpacity>
-        ))}
-      </View>
-    </SafeAreaView>
+        );
+      })}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
+    height: 60,
     borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
-    paddingBottom: Platform.OS === 'ios' ? 0 : 8,
+    borderTopColor: '#E5E7EB',
   },
   tabButton: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingVertical: 8,
   },
-  tabText: {
-    fontSize: 10,
-    marginTop: 2,
+  tabIcon: {
+    fontSize: 20,
+    marginBottom: 2,
+  },
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

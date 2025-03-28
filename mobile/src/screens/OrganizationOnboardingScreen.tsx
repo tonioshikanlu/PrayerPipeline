@@ -1,263 +1,387 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, Image, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '../navigation/NavigationContext';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '../api/queryClient';
-import { Feather } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
+import { apiRequest } from '../api/queryClient';
 
-type CreateOrganizationData = {
+interface Organization {
+  id: number;
   name: string;
   description: string;
-};
+  website: string;
+}
 
 const OrganizationOnboardingScreen: React.FC = () => {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [formErrors, setFormErrors] = useState<{ name?: string; description?: string }>({});
-  
   const { navigate } = useNavigation();
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  
+  const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Form state
+  const [orgName, setOrgName] = useState('');
+  const [orgDescription, setOrgDescription] = useState('');
+  const [orgWebsite, setOrgWebsite] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [error, setError] = useState('');
 
-  // Mutation for creating organization
-  const createOrganizationMutation = useMutation({
-    mutationFn: async (data: CreateOrganizationData) => {
-      const res = await apiRequest('POST', '/api/organizations', data);
+  // Handle creating a new organization
+  const handleCreateOrg = async () => {
+    if (!orgName.trim()) {
+      Alert.alert('Error', 'Organization name is required');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const data = {
+        name: orgName.trim(),
+        description: orgDescription.trim(),
+        website: orgWebsite.trim()
+      };
       
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Failed to create organization');
+      const response = await apiRequest('POST', '/api/organizations', data);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create organization');
       }
       
-      return await res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/organizations'] });
-      navigate('Home');
-    },
-    onError: (err: Error) => {
-      setError(err.message);
-    },
-  });
-
-  const validateForm = () => {
-    let errors: { name?: string; description?: string } = {};
-    let isValid = true;
-
-    if (!name.trim()) {
-      errors.name = 'Organization name is required';
-      isValid = false;
+      await refreshUser();
+      
+      Alert.alert(
+        'Success',
+        `Organization "${orgName}" created successfully!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigate('Home')
+          }
+        ]
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create organization';
+      setError(errorMessage);
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-
-    if (!description.trim()) {
-      errors.description = 'Description is required';
-      isValid = false;
-    }
-
-    setFormErrors(errors);
-    return isValid;
   };
 
-  const handleCreateOrganization = async () => {
-    if (!validateForm()) return;
-
+  // Handle joining with invite code
+  const handleJoinWithCode = async () => {
+    if (!inviteCode.trim()) {
+      Alert.alert('Error', 'Invite code is required');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
     try {
-      await createOrganizationMutation.mutateAsync({ name, description });
-    } catch (err) {
-      // Error is handled in mutation
+      const response = await apiRequest('POST', '/api/organizations/join', { code: inviteCode.trim() });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Invalid invite code');
+      }
+      
+      await refreshUser();
+      
+      Alert.alert(
+        'Success',
+        'Successfully joined the organization!',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigate('Home')
+          }
+        ]
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Invalid invite code';
+      setError(errorMessage);
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.formContainer}>
-          <Text style={styles.title}>Create Organization</Text>
-          <Text style={styles.subtitle}>Set up your prayer community</Text>
-
-          {error && (
-            <View style={styles.errorContainer}>
-              <Feather name="alert-circle" size={18} color="#ef4444" />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Organization Name</Text>
-            <TextInput
-              style={[styles.input, formErrors.name ? styles.inputError : null]}
-              placeholder="Enter organization name"
-              placeholderTextColor="#a3a3a3"
-              value={name}
-              onChangeText={setName}
-            />
-            {formErrors.name && (
-              <Text style={styles.fieldError}>{formErrors.name}</Text>
-            )}
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Description</Text>
-            <TextInput
-              style={[styles.textArea, formErrors.description ? styles.inputError : null]}
-              placeholder="Describe your organization..."
-              placeholderTextColor="#a3a3a3"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-            {formErrors.description && (
-              <Text style={styles.fieldError}>{formErrors.description}</Text>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={handleCreateOrganization}
-            disabled={createOrganizationMutation.isPending}
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Join a Community</Text>
+        <Text style={styles.subtitle}>
+          To use Prayer Pipeline, you need to be part of an organization.
+          You can either create your own or join an existing one.
+        </Text>
+      </View>
+      
+      {/* Tab Selector */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'create' && styles.activeTab
+          ]}
+          onPress={() => setActiveTab('create')}
+        >
+          <Text 
+            style={[
+              styles.tabText,
+              activeTab === 'create' && styles.activeTabText
+            ]}
           >
-            {createOrganizationMutation.isPending ? (
+            Create New
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'join' && styles.activeTab
+          ]}
+          onPress={() => setActiveTab('join')}
+        >
+          <Text 
+            style={[
+              styles.tabText,
+              activeTab === 'join' && styles.activeTabText
+            ]}
+          >
+            Join Existing
+          </Text>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.separator} />
+      
+      {/* Create Organization Form */}
+      {activeTab === 'create' && (
+        <View style={styles.formContainer}>
+          <Text style={styles.formTitle}>Create a New Organization</Text>
+          <Text style={styles.formDescription}>
+            Start your own community and invite others to join.
+          </Text>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Organization Name *</Text>
+            <TextInput
+              style={styles.input}
+              value={orgName}
+              onChangeText={setOrgName}
+              placeholder="Enter organization name"
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Description</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={orgDescription}
+              onChangeText={setOrgDescription}
+              placeholder="Enter description"
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Website</Text>
+            <TextInput
+              style={styles.input}
+              value={orgWebsite}
+              onChangeText={setOrgWebsite}
+              placeholder="Enter website URL"
+              keyboardType="url"
+              autoCapitalize="none"
+            />
+          </View>
+          
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleCreateOrg}
+            disabled={isLoading}
+          >
+            {isLoading ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.createButtonText}>Create Organization</Text>
+              <Text style={styles.buttonText}>Create Organization</Text>
             )}
           </TouchableOpacity>
-
+        </View>
+      )}
+      
+      {/* Join Organization Form */}
+      {activeTab === 'join' && (
+        <View style={styles.formContainer}>
+          <Text style={styles.formTitle}>Join an Existing Organization</Text>
+          <Text style={styles.formDescription}>
+            Enter the invite code provided by your organization administrator.
+          </Text>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Invite Code *</Text>
+            <TextInput
+              style={styles.input}
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              placeholder="Enter invite code"
+              autoCapitalize="none"
+            />
+          </View>
+          
           <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigate('Login')}
+            style={styles.button}
+            onPress={handleJoinWithCode}
+            disabled={isLoading}
           >
-            <Text style={styles.backButtonText}>Go Back</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.buttonText}>Join Organization</Text>
+            )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      )}
+      
+      <Text style={styles.helpText}>
+        Organizations help keep prayer requests organized and secure.
+        Each organization can have multiple prayer groups.
+      </Text>
+      
+      {/* Illustration */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('../assets/onboarding-illustration.svg')}
+          style={styles.image}
+          resizeMode="contain"
+        />
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
+    backgroundColor: '#ffffff',
     padding: 20,
   },
-  formContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-    elevation: 2,
+  header: {
+    marginBottom: 24,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#3b82f6',
-    textAlign: 'center',
+    color: '#111827',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#6B7280',
     textAlign: 'center',
+    lineHeight: 22,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  activeTab: {
+    backgroundColor: '#6366F1',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  activeTabText: {
+    color: '#FFFFFF',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
     marginBottom: 24,
+  },
+  formContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  formTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  formDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
   },
   inputContainer: {
     marginBottom: 16,
   },
-  label: {
+  inputLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#334155',
+    color: '#374151',
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#D1D5DB',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#334155',
+    backgroundColor: '#FFFFFF',
   },
   textArea: {
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#334155',
-    minHeight: 120,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
-  inputError: {
-    borderColor: '#ef4444',
-  },
-  createButton: {
-    backgroundColor: '#3b82f6',
+  button: {
+    backgroundColor: '#6366F1',
     borderRadius: 8,
     padding: 14,
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
   },
-  createButtonText: {
-    color: '#ffffff',
+  buttonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
-  backButton: {
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#64748b',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fee2e2',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#b91c1c',
-    marginLeft: 8,
+  helpText: {
     fontSize: 14,
-    flex: 1,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
   },
-  fieldError: {
-    color: '#ef4444',
-    fontSize: 12,
-    marginTop: 4,
+  imageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 40,
+  },
+  image: {
+    width: '100%',
+    height: 200,
   },
 });
 

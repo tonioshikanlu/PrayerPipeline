@@ -1,99 +1,75 @@
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
 import { useNavigation } from './NavigationContext';
-import { useAuth } from '../hooks/useAuth';
 
 // Import screens
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import ExploreGroupsScreen from '../screens/ExploreGroupsScreen';
+import PrayerRequestsScreen from '../screens/PrayerRequestsScreen';
+import OrganizationsScreen from '../screens/OrganizationsScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import ChangePasswordScreen from '../screens/ChangePasswordScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import GroupDetailsScreen from '../screens/GroupDetailsScreen';
+import RequestDetailsScreen from '../screens/RequestDetailsScreen';
+import OrganizationDetailsScreen from '../screens/OrganizationDetailsScreen';
 import OrganizationOnboardingScreen from '../screens/OrganizationOnboardingScreen';
-import TabBar from './TabBar';
+import MeetingDetailsScreen from '../screens/MeetingDetailsScreen';
 
-// Import placeholder screens
-import {
-  GroupsScreen,
-  PrayerRequestsScreen,
-  ProfileScreen,
-  OrganizationsScreen,
-  RequestDetailsScreen,
-  MeetingsScreen,
-  ForgotPasswordScreen
-} from '../screens/PlaceholderScreens';
-
-// Auth routes don't require authentication
-const authRoutes = ['Login', 'Register', 'ForgotPassword', 'OrganizationOnboarding'];
-
-// Routes that show the tab bar at the bottom
-const tabRoutes = ['Home', 'Groups', 'PrayerRequests', 'Organizations', 'Profile'];
-
-const Navigator: React.FC = () => {
-  const { currentRoute } = useNavigation();
-  const { user } = useAuth();
+// Screen mapping
+const screens: Record<string, React.ComponentType<any>> = {
+  // Auth screens
+  Login: LoginScreen,
+  Register: RegisterScreen,
+  ForgotPassword: ForgotPasswordScreen,
+  ResetPassword: ResetPasswordScreen,
   
-  // If the user is not authenticated, only show auth screens
-  const isAuthRoute = authRoutes.includes(currentRoute.name);
+  // Main screens
+  Home: HomeScreen,
+  ExploreGroups: ExploreGroupsScreen,
+  PrayerRequests: PrayerRequestsScreen,
+  Organizations: OrganizationsScreen,
+  Settings: SettingsScreen,
   
-  if (!user && !isAuthRoute) {
-    return <LoginScreen />;
-  }
+  // Profile screens
+  EditProfile: EditProfileScreen,
+  ChangePassword: ChangePasswordScreen,
   
-  // Render the current screen based on the route name
-  const renderScreen = () => {
-    switch (currentRoute.name) {
-      case 'Login':
-        return <LoginScreen />;
-      case 'Register':
-        return <RegisterScreen />;
-      case 'ForgotPassword':
-        return <ForgotPasswordScreen />;
-      case 'OrganizationOnboarding':
-        return <OrganizationOnboardingScreen />;
-      case 'Home':
-        return <HomeScreen />;
-      case 'Groups':
-        return <GroupsScreen />;
-      case 'PrayerRequests':
-        return <PrayerRequestsScreen />;
-      case 'Organizations':
-        return <OrganizationsScreen />;
-      case 'Profile':
-        return <ProfileScreen />;
-      case 'RequestDetails':
-        return <RequestDetailsScreen />;
-      case 'Meetings':
-        return <MeetingsScreen />;
-      default:
-        return <HomeScreen />;
-    }
-  };
-  
-  const showTabBar = tabRoutes.includes(currentRoute.name);
-  
-  return (
-    <View style={styles.container}>
-      <View style={styles.screenContainer}>
-        {renderScreen()}
-      </View>
-      {showTabBar && (
-        <TabBar />
-      )}
-    </View>
-  );
+  // Detail screens
+  GroupDetails: GroupDetailsScreen,
+  RequestDetails: RequestDetailsScreen,
+  OrganizationDetails: OrganizationDetailsScreen,
+  OrganizationOnboarding: OrganizationOnboardingScreen,
+  MeetingDetails: MeetingDetailsScreen
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  screenContainer: {
-    flex: 1,
-  },
-  placeholder: {
-    flex: 1,
-    backgroundColor: '#f1f5f9',
-  },
-});
+interface NavigatorProps {
+  authenticated: boolean;
+}
+
+const Navigator: React.FC<NavigatorProps> = ({ authenticated }) => {
+  const { currentScreen, params } = useNavigation();
+  
+  // If not authenticated, only show auth screens
+  if (!authenticated) {
+    if (currentScreen === 'Login' || 
+        currentScreen === 'Register' || 
+        currentScreen === 'ForgotPassword' ||
+        currentScreen === 'ResetPassword') {
+      const Screen = screens[currentScreen];
+      return <Screen {...params} />;
+    }
+    // Fallback to Login if trying to access protected screen
+    const LoginComponent = screens['Login'];
+    return <LoginComponent />;
+  }
+  
+  // If authenticated, show requested screen
+  const Screen = screens[currentScreen] || screens['Home']; // Default to Home if screen not found
+  return <Screen {...params} />;
+};
 
 export default Navigator;
