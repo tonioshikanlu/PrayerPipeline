@@ -1,302 +1,365 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '@navigation/AppNavigator';
-import {
-  Text,
-  Card,
-  Button,
-  Portal,
-  Dialog,
-  TextInput,
-  ActivityIndicator,
-  useTheme,
-  SegmentedButtons,
-  Divider,
-} from 'react-native-paper';
-import { useMutation } from '@tanstack/react-query';
-import { useAuth } from '@hooks/useAuth';
-import { apiRequest } from '@/api/queryClient';
+import { View, StyleSheet, ScrollView, Image, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useNavigation } from '../navigation/NavigationContext';
+import { useAuth } from '../hooks/useAuth';
 
-export default function OrganizationOnboardingScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const theme = useTheme();
-  const { refreshUser } = useAuth();
+// Mock data structure
+interface Organization {
+  id: number;
+  name: string;
+  description: string;
+  website: string;
+}
+
+const OrganizationOnboardingScreen: React.FC = () => {
+  const { navigate } = useNavigation();
+  const { user } = useAuth();
   
-  const [activeOption, setActiveOption] = useState<'create' | 'join'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
+  const [isLoading, setIsLoading] = useState(false);
   
-  // Create organization state
+  // Form state
   const [orgName, setOrgName] = useState('');
   const [orgDescription, setOrgDescription] = useState('');
   const [orgWebsite, setOrgWebsite] = useState('');
-  
-  // Join organization state
   const [inviteCode, setInviteCode] = useState('');
 
-  // Error handling
-  const [errorDialogVisible, setErrorDialogVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // Create organization mutation
-  const createOrgMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; website: string }) => {
-      const res = await apiRequest('POST', '/api/organizations', data);
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Failed to create organization' }));
-        throw new Error(error.message || 'Failed to create organization');
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      refreshUser();
-      navigation.navigate('Main');
-    },
-    onError: (error: Error) => {
-      setErrorMessage(error.message);
-      setErrorDialogVisible(true);
-    },
-  });
-
-  // Join with invite code mutation
-  const joinWithCodeMutation = useMutation({
-    mutationFn: async (code: string) => {
-      const res = await apiRequest('POST', '/api/organizations/join', { code });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Invalid invite code' }));
-        throw new Error(error.message || 'Invalid invite code');
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      refreshUser();
-      navigation.navigate('Main');
-    },
-    onError: (error: Error) => {
-      setErrorMessage(error.message);
-      setErrorDialogVisible(true);
-    },
-  });
-
-  const handleCreateOrg = () => {
-    if (orgName.trim()) {
-      createOrgMutation.mutate({
-        name: orgName.trim(),
-        description: orgDescription.trim(),
-        website: orgWebsite.trim(),
-      });
-    } else {
-      setErrorMessage('Organization name is required');
-      setErrorDialogVisible(true);
+  // Handle creating a new organization
+  const handleCreateOrg = async () => {
+    if (!orgName.trim()) {
+      Alert.alert('Error', 'Organization name is required');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    // Simulate API call
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Mock success
+      Alert.alert(
+        'Success',
+        `Organization "${orgName}" created successfully!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => navigate('Home')
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create organization. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleJoinWithCode = () => {
-    if (inviteCode.trim()) {
-      joinWithCodeMutation.mutate(inviteCode.trim());
-    } else {
-      setErrorMessage('Invite code is required');
-      setErrorDialogVisible(true);
+  // Handle joining with invite code
+  const handleJoinWithCode = async () => {
+    if (!inviteCode.trim()) {
+      Alert.alert('Error', 'Invite code is required');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    // Simulate API call
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Mock success
+      Alert.alert(
+        'Success',
+        'Successfully joined the organization!',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigate('Home')
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Invalid invite code. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.content}>
-          <View style={styles.header}>
-            <Text variant="headlineMedium" style={styles.title}>
-              Join a Community
-            </Text>
-            <Text variant="bodyLarge" style={styles.subtitle}>
-              To use Prayer Pipeline, you need to be part of an organization. You can either create your own or join an existing one.
-            </Text>
-          </View>
-
-          <SegmentedButtons
-            value={activeOption}
-            onValueChange={(value) => setActiveOption(value as 'create' | 'join')}
-            buttons={[
-              { value: 'create', label: 'Create New' },
-              { value: 'join', label: 'Join Existing' },
-            ]}
-            style={styles.segmentedButtons}
-          />
-          
-          <Divider style={styles.divider} />
-          
-          {/* Create Organization Form */}
-          {activeOption === 'create' && (
-            <Card style={styles.card}>
-              <Card.Content>
-                <Text variant="titleMedium" style={styles.cardTitle}>
-                  Create a New Organization
-                </Text>
-                <Text variant="bodyMedium" style={styles.cardDescription}>
-                  Start your own community and invite others to join.
-                </Text>
-                
-                <TextInput
-                  label="Organization Name *"
-                  value={orgName}
-                  onChangeText={setOrgName}
-                  mode="outlined"
-                  style={styles.input}
-                />
-                
-                <TextInput
-                  label="Description"
-                  value={orgDescription}
-                  onChangeText={setOrgDescription}
-                  mode="outlined"
-                  multiline
-                  numberOfLines={3}
-                  style={styles.input}
-                />
-                
-                <TextInput
-                  label="Website"
-                  value={orgWebsite}
-                  onChangeText={setOrgWebsite}
-                  mode="outlined"
-                  keyboardType="url"
-                  autoCapitalize="none"
-                  style={styles.input}
-                />
-                
-                <Button
-                  mode="contained"
-                  onPress={handleCreateOrg}
-                  style={styles.submitButton}
-                  loading={createOrgMutation.isPending}
-                  disabled={!orgName.trim() || createOrgMutation.isPending}
-                >
-                  Create Organization
-                </Button>
-              </Card.Content>
-            </Card>
-          )}
-
-          {/* Join Organization Form */}
-          {activeOption === 'join' && (
-            <Card style={styles.card}>
-              <Card.Content>
-                <Text variant="titleMedium" style={styles.cardTitle}>
-                  Join an Existing Organization
-                </Text>
-                <Text variant="bodyMedium" style={styles.cardDescription}>
-                  Enter the invite code provided by your organization administrator.
-                </Text>
-                
-                <TextInput
-                  label="Invite Code *"
-                  value={inviteCode}
-                  onChangeText={setInviteCode}
-                  mode="outlined"
-                  autoCapitalize="none"
-                  style={styles.input}
-                />
-                
-                <Button
-                  mode="contained"
-                  onPress={handleJoinWithCode}
-                  style={styles.submitButton}
-                  loading={joinWithCodeMutation.isPending}
-                  disabled={!inviteCode.trim() || joinWithCodeMutation.isPending}
-                >
-                  Join Organization
-                </Button>
-              </Card.Content>
-            </Card>
-          )}
-          
-          <Text variant="bodySmall" style={styles.helpText}>
-            Organizations help keep prayer requests organized and secure. Each organization can have multiple prayer groups.
-          </Text>
-        </View>
-        
-        {/* Footer Image */}
-        <View style={styles.imageContainer}>
-          <Image
-            source={require('@/assets/onboarding-illustration.png')}
-            style={styles.image}
-            resizeMode="contain"
-          />
-        </View>
-      </ScrollView>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Join a Community</Text>
+        <Text style={styles.subtitle}>
+          To use Prayer Pipeline, you need to be part of an organization.
+          You can either create your own or join an existing one.
+        </Text>
+      </View>
       
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog visible={errorDialogVisible} onDismiss={() => setErrorDialogVisible(false)}>
-          <Dialog.Title>Error</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{errorMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setErrorDialogVisible(false)}>OK</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </View>
+      {/* Tab Selector */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'create' && styles.activeTab
+          ]}
+          onPress={() => setActiveTab('create')}
+        >
+          <Text 
+            style={[
+              styles.tabText,
+              activeTab === 'create' && styles.activeTabText
+            ]}
+          >
+            Create New
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === 'join' && styles.activeTab
+          ]}
+          onPress={() => setActiveTab('join')}
+        >
+          <Text 
+            style={[
+              styles.tabText,
+              activeTab === 'join' && styles.activeTabText
+            ]}
+          >
+            Join Existing
+          </Text>
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.separator} />
+      
+      {/* Create Organization Form */}
+      {activeTab === 'create' && (
+        <View style={styles.formContainer}>
+          <Text style={styles.formTitle}>Create a New Organization</Text>
+          <Text style={styles.formDescription}>
+            Start your own community and invite others to join.
+          </Text>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Organization Name *</Text>
+            <TextInput
+              style={styles.input}
+              value={orgName}
+              onChangeText={setOrgName}
+              placeholder="Enter organization name"
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Description</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={orgDescription}
+              onChangeText={setOrgDescription}
+              placeholder="Enter description"
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Website</Text>
+            <TextInput
+              style={styles.input}
+              value={orgWebsite}
+              onChangeText={setOrgWebsite}
+              placeholder="Enter website URL"
+              keyboardType="url"
+              autoCapitalize="none"
+            />
+          </View>
+          
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleCreateOrg}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.buttonText}>Create Organization</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      {/* Join Organization Form */}
+      {activeTab === 'join' && (
+        <View style={styles.formContainer}>
+          <Text style={styles.formTitle}>Join an Existing Organization</Text>
+          <Text style={styles.formDescription}>
+            Enter the invite code provided by your organization administrator.
+          </Text>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Invite Code *</Text>
+            <TextInput
+              style={styles.input}
+              value={inviteCode}
+              onChangeText={setInviteCode}
+              placeholder="Enter invite code"
+              autoCapitalize="none"
+            />
+          </View>
+          
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleJoinWithCode}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.buttonText}>Join Organization</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+      
+      <Text style={styles.helpText}>
+        Organizations help keep prayer requests organized and secure.
+        Each organization can have multiple prayer groups.
+      </Text>
+      
+      {/* Illustration */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={require('../assets/onboarding-illustration.svg')}
+          style={styles.image}
+          resizeMode="contain"
+        />
+      </View>
+    </ScrollView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
+    backgroundColor: '#ffffff',
+    padding: 20,
   },
   header: {
     marginBottom: 24,
   },
   title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#111827',
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
+    fontSize: 16,
+    color: '#6B7280',
     textAlign: 'center',
-    opacity: 0.7,
+    lineHeight: 22,
   },
-  segmentedButtons: {
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  activeTab: {
+    backgroundColor: '#6366F1',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  activeTabText: {
+    color: '#FFFFFF',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
     marginBottom: 24,
   },
-  divider: {
+  formContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  card: {
-    marginBottom: 24,
-  },
-  cardTitle: {
+  formTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
     marginBottom: 8,
   },
-  cardDescription: {
+  formDescription: {
+    fontSize: 14,
+    color: '#6B7280',
     marginBottom: 16,
-    opacity: 0.7,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
   },
   input: {
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#FFFFFF',
   },
-  submitButton: {
-    marginTop: 8,
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  button: {
+    backgroundColor: '#6366F1',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   helpText: {
+    fontSize: 14,
+    color: '#6B7280',
     textAlign: 'center',
-    opacity: 0.6,
+    marginBottom: 24,
   },
   imageContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    marginBottom: 40,
   },
   image: {
-    width: '80%',
-    height: 180,
+    width: '100%',
+    height: 200,
   },
 });
+
+export default OrganizationOnboardingScreen;

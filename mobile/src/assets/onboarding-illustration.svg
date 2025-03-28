@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background shapes -->
+  <rect x="50" y="50" width="300" height="200" rx="20" fill="#f0f4ff" />
+  
+  <!-- Decorative elements -->
+  <circle cx="100" cy="100" r="30" fill="#6366F1" opacity="0.7" />
+  <circle cx="300" cy="200" r="30" fill="#6366F1" opacity="0.7" />
+  <circle cx="200" cy="150" r="50" fill="#ffffff" stroke="#6366F1" stroke-width="2" />
+  
+  <!-- Prayer hands icon -->
+  <path d="M180 150 Q200 120 220 150 L220 180 Q200 210 180 180 Z" fill="#6366F1" opacity="0.9" />
+  
+  <!-- Connection lines -->
+  <path d="M100 100 L180 150" stroke="#6366F1" stroke-width="2" stroke-dasharray="5 5" />
+  <path d="M220 150 L300 200" stroke="#6366F1" stroke-width="2" stroke-dasharray="5 5" />
+  
+  <!-- Small decorative circles -->
+  <circle cx="140" cy="125" r="5" fill="#6366F1" />
+  <circle cx="260" cy="175" r="5" fill="#6366F1" />
+  
+  <!-- Text placeholder representation -->
+  <rect x="150" y="220" width="100" height="10" rx="5" fill="#6366F1" opacity="0.5" />
+  <rect x="170" y="240" width="60" height="10" rx="5" fill="#6366F1" opacity="0.3" />
+</svg>
