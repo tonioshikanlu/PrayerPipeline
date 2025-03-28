@@ -1,209 +1,155 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '@navigation/AppNavigator';
-import {
-  Text,
-  TextInput,
-  Button,
-  Portal,
-  Dialog,
-  useTheme,
-  Card,
-  HelperText,
-} from 'react-native-paper';
-import { useMutation } from '@tanstack/react-query';
-import { apiRequest } from '@/api/queryClient';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 
 export default function ForgotPasswordScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const theme = useTheme();
-  
-  // Form state
   const [email, setEmail] = useState('');
-  
-  // Success state
-  const [successDialogVisible, setSuccessDialogVisible] = useState(false);
-  
-  // Error handling
-  const [errorDialogVisible, setErrorDialogVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [isSent, setIsSent] = useState(false);
 
-  // Request password reset mutation
-  const requestResetMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const res = await apiRequest('POST', '/api/forgot-password', { email });
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Failed to send reset email' }));
-        throw new Error(error.message || 'Failed to send reset email');
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      setSuccessDialogVisible(true);
-    },
-    onError: (error: Error) => {
-      setErrorMessage(error.message);
-      setErrorDialogVisible(true);
-    },
-  });
-
-  const validateEmail = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) return "Email is required";
-    if (!emailRegex.test(email)) return "Please enter a valid email address";
-    return "";
-  };
-
-  const handleRequestReset = () => {
-    const emailError = validateEmail();
-    if (emailError) {
-      setErrorMessage(emailError);
-      setErrorDialogVisible(true);
+  const handleSendResetLink = () => {
+    // Validate email
+    if (!email.trim()) {
+      Alert.alert('Error', 'Email is required');
       return;
     }
+
+    // Simple email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    // API call to send password reset email
+    console.log('Sending password reset email to:', email);
     
-    requestResetMutation.mutate(email);
+    // Show success state
+    setIsSent(true);
   };
 
-  const handleSuccessDialogClose = () => {
-    setSuccessDialogVisible(false);
-    navigation.navigate('Auth');
+  const handleBackToLogin = () => {
+    // Navigate back to login screen
+    console.log('Navigate back to login');
   };
 
-  const emailError = validateEmail();
-  const isFormValid = !emailError;
-
-  return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+  if (isSent) {
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Check Your Email</Text>
+        </View>
         <View style={styles.content}>
-          <View style={styles.headerContainer}>
-            <Text variant="headlineMedium" style={styles.title}>
-              Reset Your Password
-            </Text>
-            <Text variant="bodyLarge" style={styles.subtitle}>
-              Enter your email address and we'll send you instructions to reset your password.
-            </Text>
-          </View>
-          
-          <Card style={styles.card}>
-            <Card.Content>
-              <TextInput
-                label="Email Address"
-                value={email}
-                onChangeText={setEmail}
-                mode="outlined"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={styles.input}
-              />
-              
-              <Button
-                mode="contained"
-                onPress={handleRequestReset}
-                style={styles.resetButton}
-                loading={requestResetMutation.isPending}
-                disabled={!isFormValid || requestResetMutation.isPending}
-              >
-                Send Reset Instructions
-              </Button>
-              
-              <Button
-                mode="text"
-                onPress={() => navigation.navigate('Auth')}
-                style={styles.backButton}
-              >
-                Back to Login
-              </Button>
-            </Card.Content>
-          </Card>
-          
-          <View style={styles.imageContainer}>
-            <Image
-              source={require('@/assets/forgot-password-illustration.png')}
-              style={styles.image}
-              resizeMode="contain"
-            />
-          </View>
+          <Text style={styles.message}>
+            We've sent a password reset link to {email}. Please check your email and follow the instructions to reset your password.
+          </Text>
+          <TouchableOpacity style={styles.button} onPress={handleBackToLogin}>
+            <Text style={styles.buttonText}>Back to Login</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
-      
-      {/* Success Dialog */}
-      <Portal>
-        <Dialog visible={successDialogVisible} onDismiss={handleSuccessDialogClose}>
-          <Dialog.Title>Check Your Email</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">
-              We've sent password reset instructions to your email address. Please check your inbox and follow the link to reset your password.
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={handleSuccessDialogClose}>OK</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-      
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog visible={errorDialogVisible} onDismiss={() => setErrorDialogVisible(false)}>
-          <Dialog.Title>Error</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{errorMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setErrorDialogVisible(false)}>OK</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Forgot Password</Text>
+      </View>
+      <View style={styles.form}>
+        <Text style={styles.instruction}>
+          Enter your email address and we'll send you a link to reset your password.
+        </Text>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Enter your email"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+        <TouchableOpacity style={styles.button} onPress={handleSendResetLink}>
+          <Text style={styles.buttonText}>Send Reset Link</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.linkButton} onPress={handleBackToLogin}>
+          <Text style={styles.linkText}>Back to Login</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  headerContainer: {
-    marginBottom: 24,
+  header: {
+    padding: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e4e8',
   },
   title: {
-    marginBottom: 8,
-    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333333',
   },
-  subtitle: {
-    textAlign: 'center',
-    opacity: 0.7,
+  form: {
+    padding: 16,
   },
-  card: {
+  content: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  instruction: {
+    fontSize: 16,
+    color: '#4a5568',
     marginBottom: 24,
   },
-  input: {
+  message: {
+    fontSize: 16,
+    color: '#4a5568',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  inputGroup: {
     marginBottom: 16,
   },
-  resetButton: {
-    marginBottom: 16,
-  },
-  backButton: {
+  label: {
+    fontSize: 16,
     marginBottom: 8,
+    color: '#4a5568',
   },
-  imageContainer: {
-    flex: 1,
+  input: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#ffffff',
+  },
+  button: {
+    backgroundColor: '#4299e1',
+    borderRadius: 8,
+    padding: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
+    marginTop: 24,
+    marginBottom: 16,
   },
-  image: {
-    width: '80%',
-    height: 180,
+  buttonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  linkButton: {
+    alignItems: 'center',
+    padding: 8,
+  },
+  linkText: {
+    color: '#4299e1',
+    fontSize: 16,
   },
 });

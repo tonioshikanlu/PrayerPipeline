@@ -1,100 +1,77 @@
 import { QueryClient } from '@tanstack/react-query';
-import Constants from 'expo-constants';
 
-// API base URL - get from environment or use default
-const API_BASE_URL = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:3000';
+// Base URL for API requests - adjust for dev/prod environments
+const API_BASE_URL = '/api';
 
+// Create and export the query client instance
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      refetchOnWindowFocus: false,
       retry: 1,
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
 
+// Types for the API request options
+type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+type ApiOptions = {
+  headers?: Record<string, string>;
+  credentials?: RequestCredentials;
+  on401?: 'throw' | 'returnNull';
+};
+
 /**
- * Make an API request with automatic token handling
+ * Helper function to make API requests
  */
 export async function apiRequest(
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
-  path: string,
+  method: Method,
+  endpoint: string,
   body?: any,
-  customHeaders?: Record<string, string>
+  options: ApiOptions = {}
 ): Promise<Response> {
-  const url = `${API_BASE_URL}${path}`;
-  
-  const headers: HeadersInit = {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const headers = {
     'Content-Type': 'application/json',
-    ...customHeaders,
+    ...options.headers,
   };
-  
-  const options: RequestInit = {
+
+  const config: RequestInit = {
     method,
     headers,
-    credentials: 'include',
+    credentials: options.credentials || 'include',
   };
-  
+
   if (body && method !== 'GET') {
-    options.body = JSON.stringify(body);
+    config.body = JSON.stringify(body);
   }
-  
-  try {
-    const response = await fetch(url, options);
-    
-    // Handle 401 Unauthorized globally
-    if (response.status === 401) {
-      // Could trigger auth flow here or let the component handle it
-      console.warn('Unauthorized request:', path);
-    }
-    
-    return response;
-  } catch (error) {
-    console.error(`API Request Error for ${path}:`, error);
-    throw error;
-  }
+
+  return fetch(url, config);
 }
 
 /**
- * Default query function used by react-query
+ * Creates a query function for react-query that handles common API response scenarios
  */
-export function getQueryFn(options?: { on401?: 'throwError' | 'returnNull' }) {
-  return async ({ queryKey }: { queryKey: string[] }) => {
-    const [path, ...rest] = queryKey;
-    
-    // If queryKey has parameters, append them to the URL
-    let url = path;
-    if (rest.length > 0 && typeof rest[0] === 'object') {
-      const params = new URLSearchParams();
-      Object.entries(rest[0]).forEach(([key, value]) => {
-        if (value !== undefined) {
-          params.append(key, String(value));
-        }
-      });
-      
-      const paramsString = params.toString();
-      if (paramsString) {
-        url += `?${paramsString}`;
-      }
-    }
-    
-    const response = await apiRequest('GET', url);
-    
-    // Handle unauthorized based on options
-    if (response.status === 401) {
-      if (options?.on401 === 'returnNull') {
+export function getQueryFn(options: ApiOptions = {}) {
+  return async ({ queryKey }: any) => {
+    const [endpoint] = queryKey;
+    const response = await apiRequest('GET', endpoint, undefined, options);
+
+    if (!response.ok) {
+      if (response.status === 401 && options.on401 === 'returnNull') {
         return null;
       }
-      throw new Error('Unauthorized');
+      
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
     }
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(
-        errorData?.message || `Request failed with status ${response.status}`
-      );
+
+    // For endpoints that don't return JSON (like 204 No Content)
+    if (response.status === 204) {
+      return null;
     }
-    
+
     return response.json();
   };
 }

@@ -1,0 +1,84 @@
+Logs for your project will appear below. Press Ctrl+C to exit.
+ERROR in ./node_modules/expo-modules-core/build/uuid/uuid.web.js:9:8
+Module not found: Can't resolve 'crypto'
+   7 |   const cryptoObject =
+   8 |     typeof crypto === 'undefined' || typeof crypto.randomUUID === 'undefined'
+>  9 |       ? require('crypto')
+     |        ^
+  10 |       : crypto;
+  11 |
+  12 |   if (!cryptoObject?.randomUUID) {
+
+ERROR in ./src/context/AuthContext.tsx:3
+Module not found: Can't resolve '@shared/schema'
+  1 | import React, { createContext, ReactNode, useEffect, useState } from 'react';
+  2 | import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+> 3 | import { User, insertUserSchema } from '@shared/schema';
+  4 | import { z } from 'zod';
+  5 | import * as SecureStore from 'expo-secure-store';
+  6 | import { Alert } from 'react-native';
+
+ERROR in ./src/navigation/MainNavigator.tsx:2
+Module not found: Can't resolve '@react-navigation/bottom-tabs'
+  1 | import React from 'react';
+> 2 | import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+  3 | import { createNativeStackNavigator } from '@react-navigation/native-stack';
+  4 | import { useTheme } from 'react-native-paper';
+  5 | import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+
+ERROR in ./src/screens/AuthScreen.tsx:128:22
+Module not found: Can't resolve '../assets/app-logo.png'
+  126 |           <View style={styles.logoContainer}>
+  127 |             <Image
+> 128 |               source={require('@/assets/app-logo.png')}
+      |                      ^
+  129 |               style={styles.logo}
+  130 |               resizeMode="contain"
+  131 |             />
+
+ERROR in ./src/screens/ForgotPasswordScreen.tsx:125:22
+Module not found: Can't resolve '../assets/forgot-password-illustration.png'
+  123 |           <View style={styles.imageContainer}>
+  124 |             <Image
+> 125 |               source={require('@/assets/forgot-password-illustration.png')}
+      |                      ^
+  126 |               style={styles.image}
+  127 |               resizeMode="contain"
+  128 |             />
+
+ERROR in ./src/screens/OrganizationOnboardingScreen.tsx:221:20
+Module not found: Can't resolve '../assets/onboarding-illustration.png'
+  219 |         <View style={styles.imageContainer}>
+  220 |           <Image
+> 221 |             source={require('@/assets/onboarding-illustration.png')}
+      |                    ^
+  222 |             style={styles.image}
+  223 |             resizeMode="contain"
+  224 |           />
+
+ERROR in ./src/screens/ResetPasswordScreen.tsx:174:22
+Module not found: Can't resolve '../assets/reset-password-illustration.png'
+  172 |           <View style={styles.imageContainer}>
+  173 |             <Image
+> 174 |               source={require('@/assets/reset-password-illustration.png')}
+      |                      ^
+  175 |               style={styles.image}
+  176 |               resizeMode="contain"
+  177 |             />
+
+ERROR in ./src/services/notificationService.ts:1
+Module not found: Can't resolve 'expo-device'
+> 1 | import * as Device from 'expo-device';
+  2 | import * as Notifications from 'expo-notifications';
+  3 | import { Platform } from 'react-native';
+  4 | import Constants from 'expo-constants';
+
+ERROR in ./src/services/notificationService.ts:2
+Module not found: Can't resolve 'expo-notifications'
+  1 | import * as Device from 'expo-device';
+> 2 | import * as Notifications from 'expo-notifications';
+  3 | import { Platform } from 'react-native';
+  4 | import Constants from 'expo-constants';
+  5 | import { apiRequest } from '@/api/queryClient';
+
+web compiled with 9 errors

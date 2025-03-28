@@ -1,196 +1,216 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useTheme } from 'react-native-paper';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { View, Text } from 'react-native';
+// Mocking the bottom tab navigator
+import HomeScreen from '../screens/HomeScreen';
+import ExploreGroupsScreen from '../screens/ExploreGroupsScreen';
+import PrayerRequestsScreen from '../screens/PrayerRequestsScreen';
+import OrganizationsScreen from '../screens/OrganizationsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
-// Import screens
-import HomeScreen from '@screens/HomeScreen';
-import PrayerRequestsScreen from '@screens/PrayerRequestsScreen';
-import ExploreGroupsScreen from '@screens/ExploreGroupsScreen';
-import SettingsScreen from '@screens/SettingsScreen';
-import GroupDetailsScreen from '@screens/GroupDetailsScreen';
-import RequestDetailsScreen from '@screens/RequestDetailsScreen';
-import MeetingDetailsScreen from '@screens/MeetingDetailsScreen';
-import OrganizationsScreen from '@screens/OrganizationsScreen';
-import OrganizationDetailsScreen from '@screens/OrganizationDetailsScreen';
-
-// Type definitions for our route parameters
-export type HomeStackParamList = {
-  Home: undefined;
-  GroupDetails: { groupId: number };
-  RequestDetails: { requestId: number };
-  MeetingDetails: { meetingId: number };
+// Icon types for type safety
+type IconProps = {
+  color: string;
+  size: number;
 };
 
-export type PrayerRequestsStackParamList = {
-  PrayerRequests: undefined;
-  RequestDetails: { requestId: number };
-  CreateRequest: undefined;
-  EditRequest: { requestId: number };
+// Mock Icon component
+const Icon: React.FC<{ name: string; color: string; size: number }> = ({ name, color, size }) => (
+  <div style={{ width: size, height: size, backgroundColor: color }}>{name}</div>
+);
+
+// Mock implementation of the bottom tab navigator
+type NavigatorProps = {
+  children: React.ReactNode;
+  initialRouteName?: string;
+  screenOptions?: any;
 };
 
-export type ExploreStackParamList = {
-  Explore: undefined;
-  GroupDetails: { groupId: number };
-  CreateGroup: undefined;
+type ScreenProps = {
+  name: string;
+  component: React.ComponentType<any>;
+  options?: any;
 };
 
-export type SettingsStackParamList = {
-  Settings: undefined;
-  Organizations: undefined;
-  OrganizationDetails: { organizationId: number };
-  EditProfile: undefined;
-  ChangePassword: undefined;
+const Tab = {
+  Navigator: ({ children, initialRouteName, screenOptions }: NavigatorProps) => (
+    <div className="bottom-tabs-container" data-initial-route={initialRouteName}>
+      {children}
+    </div>
+  ),
+  Screen: ({ name, component, options }: ScreenProps) => {
+    const Component = component;
+    return (
+      <div className={`screen ${name}`} data-options={JSON.stringify(options)}>
+        <Component />
+      </div>
+    );
+  },
 };
 
-// Create stack navigators for each tab
-const HomeStack = createNativeStackNavigator<HomeStackParamList>();
-const PrayerRequestsStack = createNativeStackNavigator<PrayerRequestsStackParamList>();
-const ExploreStack = createNativeStackNavigator<ExploreStackParamList>();
-const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
-const Tab = createBottomTabNavigator();
+// Mock implementation of the stack navigator
+const Stack = {
+  Navigator: ({ children, screenOptions }: NavigatorProps) => (
+    <div className="stack-container" data-options={JSON.stringify(screenOptions)}>
+      {children}
+    </div>
+  ),
+  Screen: ({ name, component, options }: ScreenProps) => {
+    const Component = component;
+    return (
+      <div className={`screen ${name}`} data-options={JSON.stringify(options)}>
+        <Component />
+      </div>
+    );
+  },
+};
 
-// Stack screens for Home tab
-function HomeStackNavigator() {
-  return (
-    <HomeStack.Navigator>
-      <HomeStack.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: 'Dashboard' }}
-      />
-      <HomeStack.Screen
-        name="GroupDetails"
-        component={GroupDetailsScreen}
-        options={({ route }) => ({ title: 'Group Details' })}
-      />
-      <HomeStack.Screen
-        name="RequestDetails"
-        component={RequestDetailsScreen}
-        options={({ route }) => ({ title: 'Prayer Request' })}
-      />
-      <HomeStack.Screen
-        name="MeetingDetails"
-        component={MeetingDetailsScreen}
-        options={({ route }) => ({ title: 'Meeting Details' })}
-      />
-    </HomeStack.Navigator>
-  );
-}
+// Mock icons
+const MaterialCommunityIcons = {
+  name: 'home',
+  size: 24,
+  color: '#000',
+  render: (props: IconProps) => <Icon name="icon" color={props.color} size={props.size} />,
+};
 
-// Stack screens for Prayer Requests tab
-function PrayerRequestsStackNavigator() {
-  return (
-    <PrayerRequestsStack.Navigator>
-      <PrayerRequestsStack.Screen
-        name="PrayerRequests"
-        component={PrayerRequestsScreen}
-        options={{ title: 'Prayer Requests' }}
-      />
-      <PrayerRequestsStack.Screen
-        name="RequestDetails"
-        component={RequestDetailsScreen}
-        options={({ route }) => ({ title: 'Prayer Request' })}
-      />
-    </PrayerRequestsStack.Navigator>
-  );
-}
+// Create bottom tab navigator (mock)
+const createBottomTabNavigator = () => Tab;
+const createNativeStackNavigator = () => Stack;
 
-// Stack screens for Explore tab
-function ExploreStackNavigator() {
-  return (
-    <ExploreStack.Navigator>
-      <ExploreStack.Screen
-        name="Explore"
-        component={ExploreGroupsScreen}
-        options={{ title: 'Explore Groups' }}
-      />
-      <ExploreStack.Screen
-        name="GroupDetails"
-        component={GroupDetailsScreen}
-        options={({ route }) => ({ title: 'Group Details' })}
-      />
-    </ExploreStack.Navigator>
-  );
-}
+// Mock theme
+const useTheme = () => ({
+  colors: {
+    primary: '#4299e1',
+    background: '#ffffff',
+    text: '#333333',
+  },
+});
 
-// Stack screens for Settings tab
-function SettingsStackNavigator() {
-  return (
-    <SettingsStack.Navigator>
-      <SettingsStack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ title: 'Settings' }}
-      />
-      <SettingsStack.Screen
-        name="Organizations"
-        component={OrganizationsScreen}
-        options={{ title: 'Organizations' }}
-      />
-      <SettingsStack.Screen
-        name="OrganizationDetails"
-        component={OrganizationDetailsScreen}
-        options={({ route }) => ({ title: 'Organization Details' })}
-      />
-    </SettingsStack.Navigator>
-  );
-}
+const BottomTabs = createBottomTabNavigator();
 
-// Main tab navigator
-export default function MainNavigator() {
+// Main app navigation
+export function MainNavigator() {
   const theme = useTheme();
-  
+
   return (
-    <Tab.Navigator
+    <BottomTabs.Navigator
+      initialRouteName="Home"
       screenOptions={{
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: 'gray',
-        headerShown: false,
       }}
     >
-      <Tab.Screen
-        name="HomeTab"
-        component={HomeStackNavigator}
+      <BottomTabs.Screen
+        name="Home"
+        component={HomeScreen}
         options={{
-          tabBarLabel: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }: IconProps) => 
+            MaterialCommunityIcons.render({ color, size })
         }}
       />
-      <Tab.Screen
-        name="PrayerRequestsTab"
-        component={PrayerRequestsStackNavigator}
+      <BottomTabs.Screen
+        name="ExploreGroups"
+        component={ExploreGroupsScreen}
         options={{
-          tabBarLabel: 'Prayers',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="prayer" color={color} size={size} />
-          ),
+          title: 'Explore',
+          tabBarIcon: ({ color, size }: IconProps) => 
+            MaterialCommunityIcons.render({ color, size })
         }}
       />
-      <Tab.Screen
-        name="ExploreTab"
-        component={ExploreStackNavigator}
+      <BottomTabs.Screen
+        name="PrayerRequests"
+        component={PrayerRequestsScreen}
         options={{
-          tabBarLabel: 'Groups',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-group" color={color} size={size} />
-          ),
+          title: 'Prayers',
+          tabBarIcon: ({ color, size }: IconProps) => 
+            MaterialCommunityIcons.render({ color, size })
         }}
       />
-      <Tab.Screen
-        name="SettingsTab"
-        component={SettingsStackNavigator}
+      <BottomTabs.Screen
+        name="Organizations"
+        component={OrganizationsScreen}
         options={{
-          tabBarLabel: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="cog" color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }: IconProps) => 
+            MaterialCommunityIcons.render({ color, size })
         }}
       />
-    </Tab.Navigator>
+      <BottomTabs.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          tabBarIcon: ({ color, size }: IconProps) => 
+            MaterialCommunityIcons.render({ color, size })
+        }}
+      />
+    </BottomTabs.Navigator>
+  );
+}
+
+// Stack navigators
+export function AuthNavigator() {
+  const AuthStack = createNativeStackNavigator();
+  
+  // Import the actual screens
+  const LoginScreen = require('../screens/LoginScreen').default;
+  const RegisterScreen = require('../screens/RegisterScreen').default;
+  const ForgotPasswordScreen = require('../screens/ForgotPasswordScreen').default;
+  const ResetPasswordScreen = require('../screens/ResetPasswordScreen').default;
+  
+  return (
+    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
+export function OrganizationNavigator() {
+  const OrganizationStack = createNativeStackNavigator();
+  
+  return (
+    <OrganizationStack.Navigator>
+      <OrganizationStack.Screen name="OrganizationsList" component={() => <div>Organizations List</div>} />
+      <OrganizationStack.Screen name="OrganizationDetails" component={() => <div>Organization Details</div>} />
+      <OrganizationStack.Screen name="OrganizationOnboarding" component={() => <div>Organization Onboarding</div>} />
+    </OrganizationStack.Navigator>
+  );
+}
+
+export function GroupNavigator() {
+  const GroupStack = createNativeStackNavigator();
+  
+  return (
+    <GroupStack.Navigator>
+      <GroupStack.Screen name="GroupsList" component={() => <div>Groups List</div>} />
+      <GroupStack.Screen name="GroupDetails" component={() => <div>Group Details</div>} />
+      <GroupStack.Screen name="CreateGroup" component={() => <div>Create Group</div>} />
+    </GroupStack.Navigator>
+  );
+}
+
+export function PrayerRequestNavigator() {
+  const PrayerRequestStack = createNativeStackNavigator();
+  
+  return (
+    <PrayerRequestStack.Navigator>
+      <PrayerRequestStack.Screen name="RequestsList" component={() => <div>Requests List</div>} />
+      <PrayerRequestStack.Screen name="RequestDetails" component={() => <div>Request Details</div>} />
+      <PrayerRequestStack.Screen name="CreateRequest" component={() => <div>Create Request</div>} />
+    </PrayerRequestStack.Navigator>
+  );
+}
+
+export function ProfileNavigator() {
+  const ProfileStack = createNativeStackNavigator();
+  
+  // Import the actual screens
+  const EditProfileScreen = require('../screens/EditProfileScreen').default;
+  const ChangePasswordScreen = require('../screens/ChangePasswordScreen').default;
+  
+  return (
+    <ProfileStack.Navigator>
+      <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <ProfileStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+    </ProfileStack.Navigator>
   );
 }

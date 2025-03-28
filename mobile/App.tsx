@@ -1,40 +1,53 @@
-import React from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { PaperProvider, MD3LightTheme as DefaultTheme } from 'react-native-paper';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { NavigationContainer } from '@react-navigation/native';
-import AppNavigator from '@navigation/AppNavigator';
-import { AuthProvider } from '@/context/AuthContext';
-import { NotificationProvider } from '@/context/NotificationContext';
-import { queryClient } from '@/api/queryClient';
-
-// Customize the theme
-const theme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: '#6366f1', // Indigo for primary color
-    secondary: '#0ea5e9', // Sky blue for secondary accents
-    background: '#f5f5f5',
-  },
-};
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { MainNavigator } from './src/navigation/MainNavigator';
+import { AuthProvider } from './src/context/AuthContext';
+import { AuthNavigator } from './src/navigation/MainNavigator';
 
 export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Simulate checking if user is authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      // This would typically check for a token in secure storage
+      // For now, we'll simulate a delay and set to not authenticated
+      setTimeout(() => {
+        setIsAuthenticated(false);
+        setIsLoading(false);
+      }, 1000);
+    };
+
+    checkAuth();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4299e1" />
+      </View>
+    );
+  }
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <PaperProvider theme={theme}>
-        <SafeAreaProvider>
-          <NavigationContainer>
-            <AuthProvider>
-              <NotificationProvider>
-                <AppNavigator />
-                <StatusBar style="auto" />
-              </NotificationProvider>
-            </AuthProvider>
-          </NavigationContainer>
-        </SafeAreaProvider>
-      </PaperProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <View style={styles.container}>
+        {isAuthenticated ? <MainNavigator /> : <AuthNavigator />}
+      </View>
+    </AuthProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+});

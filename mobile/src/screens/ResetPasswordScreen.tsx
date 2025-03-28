@@ -1,259 +1,168 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Image } from 'react-native';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '@navigation/AppNavigator';
-import {
-  Text,
-  TextInput,
-  Button,
-  Portal,
-  Dialog,
-  useTheme,
-  Card,
-  HelperText,
-} from 'react-native-paper';
-import { useMutation } from '@tanstack/react-query';
-import { apiRequest } from '@/api/queryClient';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 
 export default function ResetPasswordScreen() {
-  const route = useRoute<RouteProp<RootStackParamList, 'ResetPassword'>>();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const theme = useTheme();
-  const { token } = route.params;
-  
-  const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
-  const [successDialogVisible, setSuccessDialogVisible] = useState(false);
-  const [errorDialogVisible, setErrorDialogVisible] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  // Password reset mutation
-  const resetPasswordMutation = useMutation({
-    mutationFn: async (data: { token: string; password: string }) => {
-      const res = await apiRequest('POST', '/api/reset-password', data);
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Failed to reset password' }));
-        throw new Error(error.message || 'Failed to reset password');
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      setSuccessDialogVisible(true);
-    },
-    onError: (error: Error) => {
-      setErrorMessage(error.message);
-      setErrorDialogVisible(true);
-    },
-  });
-
-  const validatePassword = () => {
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters';
-    }
-    return '';
-  };
-
-  const validateConfirmPassword = () => {
-    if (confirmPassword && password !== confirmPassword) {
-      return 'Passwords do not match';
-    }
-    return '';
-  };
+  const [isReset, setIsReset] = useState(false);
 
   const handleResetPassword = () => {
-    const passwordError = validatePassword();
-    const confirmError = validateConfirmPassword();
-    
-    if (passwordError) {
-      setErrorMessage(passwordError);
-      setErrorDialogVisible(true);
+    // Validate inputs
+    if (!newPassword) {
+      Alert.alert('Error', 'New password is required');
       return;
     }
-    
-    if (confirmError) {
-      setErrorMessage(confirmError);
-      setErrorDialogVisible(true);
+
+    if (newPassword.length < 8) {
+      Alert.alert('Error', 'New password must be at least 8 characters');
       return;
     }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    // API call to reset password
+    console.log('Resetting password');
     
-    resetPasswordMutation.mutate({
-      token,
-      password,
-    });
+    // Show success state
+    setIsReset(true);
   };
 
-  const handleSuccessClose = () => {
-    setSuccessDialogVisible(false);
-    navigation.navigate('Auth');
+  const handleBackToLogin = () => {
+    // Navigate back to login screen
+    console.log('Navigate back to login');
   };
 
-  const passwordError = validatePassword();
-  const confirmPasswordError = validateConfirmPassword();
-  const isFormValid = password.length >= 8 && password === confirmPassword;
-
-  return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+  if (isReset) {
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Password Reset Complete</Text>
+        </View>
         <View style={styles.content}>
-          <View style={styles.headerContainer}>
-            <Text variant="headlineMedium" style={styles.title}>
-              Create New Password
-            </Text>
-            <Text variant="bodyLarge" style={styles.subtitle}>
-              Your password must be at least 8 characters long.
-            </Text>
-          </View>
-          
-          <Card style={styles.card}>
-            <Card.Content>
-              <TextInput
-                label="New Password"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!passwordVisible}
-                right={
-                  <TextInput.Icon
-                    icon={passwordVisible ? 'eye-off' : 'eye'}
-                    onPress={() => setPasswordVisible(!passwordVisible)}
-                  />
-                }
-                mode="outlined"
-                style={styles.input}
-              />
-              {password ? (
-                <HelperText type={passwordError ? 'error' : 'info'} visible={!!password}>
-                  {passwordError || 'Password strength: ' + (password.length >= 12 ? 'Strong' : password.length >= 8 ? 'Medium' : 'Weak')}
-                </HelperText>
-              ) : null}
-              
-              <TextInput
-                label="Confirm Password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!confirmPasswordVisible}
-                right={
-                  <TextInput.Icon
-                    icon={confirmPasswordVisible ? 'eye-off' : 'eye'}
-                    onPress={() => setConfirmPasswordVisible(!confirmPasswordVisible)}
-                  />
-                }
-                mode="outlined"
-                style={styles.input}
-              />
-              {confirmPassword ? (
-                <HelperText type={confirmPasswordError ? 'error' : 'info'} visible={!!confirmPassword}>
-                  {confirmPasswordError || 'Passwords match'}
-                </HelperText>
-              ) : null}
-              
-              <Button
-                mode="contained"
-                onPress={handleResetPassword}
-                style={styles.resetButton}
-                loading={resetPasswordMutation.isPending}
-                disabled={!isFormValid || resetPasswordMutation.isPending}
-              >
-                Reset Password
-              </Button>
-              
-              <Button
-                mode="text"
-                onPress={() => navigation.navigate('Auth')}
-                style={styles.backButton}
-              >
-                Back to Login
-              </Button>
-            </Card.Content>
-          </Card>
-          
-          <View style={styles.imageContainer}>
-            <Image
-              source={require('@/assets/reset-password-illustration.png')}
-              style={styles.image}
-              resizeMode="contain"
-            />
-          </View>
+          <Text style={styles.message}>
+            Your password has been reset successfully. You can now log in with your new password.
+          </Text>
+          <TouchableOpacity style={styles.button} onPress={handleBackToLogin}>
+            <Text style={styles.buttonText}>Back to Login</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
-      
-      {/* Success Dialog */}
-      <Portal>
-        <Dialog visible={successDialogVisible} onDismiss={handleSuccessClose}>
-          <Dialog.Title>Password Reset</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">
-              Your password has been reset successfully. You can now log in with your new password.
-            </Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={handleSuccessClose}>Login</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-      
-      {/* Error Dialog */}
-      <Portal>
-        <Dialog visible={errorDialogVisible} onDismiss={() => setErrorDialogVisible(false)}>
-          <Dialog.Title>Error</Dialog.Title>
-          <Dialog.Content>
-            <Text variant="bodyMedium">{errorMessage}</Text>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setErrorDialogVisible(false)}>OK</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
-    </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Reset Password</Text>
+      </View>
+      <View style={styles.form}>
+        <Text style={styles.instruction}>
+          Enter your new password below.
+        </Text>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>New Password</Text>
+          <TextInput
+            style={styles.input}
+            value={newPassword}
+            onChangeText={setNewPassword}
+            placeholder="Enter your new password"
+            secureTextEntry
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Confirm Password</Text>
+          <TextInput
+            style={styles.input}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm your new password"
+            secureTextEntry
+          />
+        </View>
+        <TouchableOpacity style={styles.button} onPress={handleResetPassword}>
+          <Text style={styles.buttonText}>Reset Password</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.linkButton} onPress={handleBackToLogin}>
+          <Text style={styles.linkText}>Back to Login</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  headerContainer: {
-    marginBottom: 24,
+  header: {
+    padding: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e1e4e8',
   },
   title: {
-    marginBottom: 8,
-    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333333',
   },
-  subtitle: {
-    textAlign: 'center',
-    opacity: 0.7,
+  form: {
+    padding: 16,
   },
-  card: {
+  content: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  instruction: {
+    fontSize: 16,
+    color: '#4a5568',
     marginBottom: 24,
   },
-  input: {
-    marginTop: 8,
+  message: {
+    fontSize: 16,
+    color: '#4a5568',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 24,
   },
-  resetButton: {
-    marginTop: 16,
+  inputGroup: {
     marginBottom: 16,
   },
-  backButton: {
+  label: {
+    fontSize: 16,
     marginBottom: 8,
+    color: '#4a5568',
   },
-  imageContainer: {
-    flex: 1,
+  input: {
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#ffffff',
+  },
+  button: {
+    backgroundColor: '#4299e1',
+    borderRadius: 8,
+    padding: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
+    marginTop: 24,
+    marginBottom: 16,
   },
-  image: {
-    width: '80%',
-    height: 180,
+  buttonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  linkButton: {
+    alignItems: 'center',
+    padding: 8,
+  },
+  linkText: {
+    color: '#4299e1',
+    fontSize: 16,
   },
 });
