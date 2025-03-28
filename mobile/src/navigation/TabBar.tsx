@@ -1,74 +1,73 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, SafeAreaView } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useNavigation } from './NavigationContext';
 
-interface TabBarProps {
-  activeColor?: string;
-  inactiveColor?: string;
-  backgroundColor?: string;
+interface TabItem {
+  name: string;
+  route: string;
+  icon: keyof typeof Feather.glyphMap;
 }
 
-const TabBar: React.FC<TabBarProps> = ({ 
-  activeColor = '#6366F1', 
-  inactiveColor = '#9CA3AF',
-  backgroundColor = '#FFFFFF'
-}) => {
-  const { currentScreen, navigate } = useNavigation();
+const tabs: TabItem[] = [
+  { name: 'Home', route: 'Home', icon: 'home' },
+  { name: 'Groups', route: 'Groups', icon: 'users' },
+  { name: 'Requests', route: 'PrayerRequests', icon: 'list' },
+  { name: 'Organizations', route: 'Organizations', icon: 'briefcase' },
+  { name: 'Profile', route: 'Profile', icon: 'user' },
+];
 
-  const tabs = [
-    { name: 'Home', label: 'Home', icon: '🏠' },
-    { name: 'ExploreGroups', label: 'Groups', icon: '👥' },
-    { name: 'PrayerRequests', label: 'Prayers', icon: '🙏' },
-    { name: 'Organizations', label: 'Orgs', icon: '🏢' },
-    { name: 'Settings', label: 'Settings', icon: '⚙️' },
-  ];
-
+const TabBar: React.FC = () => {
+  const { currentRoute, navigate } = useNavigation();
+  
   return (
-    <View style={[styles.container, { backgroundColor }]}>
-      {tabs.map((tab) => {
-        const isActive = currentScreen === tab.name;
-        return (
+    <SafeAreaView style={{ backgroundColor: '#ffffff' }}>
+      <View style={styles.container}>
+        {tabs.map((tab) => (
           <TouchableOpacity
-            key={tab.name}
+            key={tab.route}
             style={styles.tabButton}
-            onPress={() => navigate(tab.name)}
+            onPress={() => navigate(tab.route)}
+            accessibilityRole="button"
+            accessibilityLabel={tab.name}
           >
-            <Text style={styles.tabIcon}>{tab.icon}</Text>
+            <Feather
+              name={tab.icon}
+              size={22}
+              color={currentRoute.name === tab.route ? '#3b82f6' : '#64748b'}
+            />
             <Text
               style={[
-                styles.tabLabel,
-                { color: isActive ? activeColor : inactiveColor }
+                styles.tabText,
+                { color: currentRoute.name === tab.route ? '#3b82f6' : '#64748b' }
               ]}
             >
-              {tab.label}
+              {tab.name}
             </Text>
           </TouchableOpacity>
-        );
-      })}
-    </View>
+        ))}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    height: 60,
+    backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#e2e8f0',
+    paddingBottom: Platform.OS === 'ios' ? 0 : 8,
   },
   tabButton: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
+    paddingVertical: 10,
   },
-  tabIcon: {
-    fontSize: 20,
-    marginBottom: 2,
-  },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+  tabText: {
+    fontSize: 10,
+    marginTop: 2,
   },
 });
 

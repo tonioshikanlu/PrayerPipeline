@@ -1,11 +1,14 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { Express } from "express";
+import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser } from "@shared/schema";
+
+// Define types for passport-local strategy callback 
+type DoneCallback = (error: any, user?: SelectUser | false, info?: any) => void;
 
 declare global {
   namespace Express {
@@ -29,14 +32,21 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  // Configure session with settings for cross-domain use
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "prayer-pipeline-secret-key",
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
+    cookie: {
+      httpOnly: true,
+      secure: false, // Disable secure in development to allow HTTP
+      sameSite: 'none',  // 'none' allows cross-site cookies (requires secure:true in production)
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+    }
   };
 
-  app.set("trust proxy", 1);
+  app.set("trust proxy", 1); // Trust first proxy for secure cookies behind reverse proxy
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -58,7 +68,7 @@ export function setupAuth(app: Express) {
     done(null, user);
   });
 
-  app.post("/api/register", async (req, res, next) => {
+  app.post("/api/register", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { username, password, name, email, role } = req.body;
 
@@ -89,8 +99,8 @@ export function setupAuth(app: Express) {
       // Remove password from response
       const { password: _, ...userWithoutPassword } = user;
 
-      req.login(user, (err) => {
-        if (err) return next(err);
+      req.login(user, (loginErr: Error) => {
+        if (loginErr) return next(loginErr);
         res.status(201).json(userWithoutPassword);
       });
     } catch (error) {
@@ -98,35 +108,50 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+  app.post("/api/login", (req: Request, res: Response, next: NextFunction) => {
+    passport.authenticate("local", (err: Error | null, user: Express.User | false, info: any) => {
       if (err) return next(err);
       if (!user) return res.status(401).json({ message: "Invalid credentials" });
       
-      req.login(user, (err) => {
-        if (err) return next(err);
+      req.login(user, (loginErr: Error) => {
+        if (loginErr) return next(loginErr);
         
         // Remove password from response
-        const { password, ...userWithoutPassword } = user;
+        const { password, ...userWithoutPassword } = user as SelectUser;
         
         res.status(200).json(userWithoutPassword);
       });
     })(req, res, next);
   });
 
-  app.post("/api/logout", (req, res, next) => {
-    req.logout((err) => {
+  app.post("/api/logout", (req: Request, res: Response, next: NextFunction) => {
+    req.logout((err: Error) => {
       if (err) return next(err);
       res.sendStatus(200);
     });
   });
 
-  app.get("/api/user", (req, res) => {
+  app.get("/api/user", (req: Request, res: Response) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     // Remove password from response
     const { password, ...userWithoutPassword } = req.user;
     
     res.json(userWithoutPassword);
+  });
+  
+  // Special test endpoint that doesn't require authentication
+  app.get("/api/test-connection", (req: Request, res: Response) => {
+    res.json({
+      success: true,
+      message: "API connection successful",
+      timestamp: new Date().toISOString(),
+      origin: req.headers.origin || 'Unknown',
+      headers: {
+        'user-agent': req.headers['user-agent'],
+        'content-type': req.headers['content-type'],
+        'accept': req.headers['accept'],
+      }
+    });
   });
 }

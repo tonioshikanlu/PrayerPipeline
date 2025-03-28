@@ -1,83 +1,135 @@
 import { QueryClient } from '@tanstack/react-query';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { API_BASE_URL } from '../config/api';
 
-// Base URL for API requests - different for web vs native
-// On web, we can use relative paths
-// On native, we need the full URL to the API server
-const API_BASE_URL = Platform.OS === 'web' 
-  ? '/api' 
-  : Constants.manifest?.extra?.apiUrl || 'https://prayer-pipeline.replit.app/api';
-
-// Create and export the query client instance
+// Initialize QueryClient
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
       retry: 1,
+      refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000, // 5 minutes
     },
   },
 });
 
-// Types for the API request options
-type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-type ApiOptions = {
-  headers?: Record<string, string>;
-  credentials?: RequestCredentials;
+// Interface for QueryFn options
+interface GetQueryFnOptions {
   on401?: 'throw' | 'returnNull';
-};
-
-/**
- * Helper function to make API requests
- */
-export async function apiRequest(
-  method: Method,
-  endpoint: string,
-  body?: any,
-  options: ApiOptions = {}
-): Promise<Response> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-
-  const config: RequestInit = {
-    method,
-    headers,
-    credentials: options.credentials || 'include',
-  };
-
-  if (body && method !== 'GET') {
-    config.body = JSON.stringify(body);
-  }
-
-  return fetch(url, config);
+  on404?: 'throw' | 'returnNull';
 }
 
-/**
- * Creates a query function for react-query that handles common API response scenarios
- */
-export function getQueryFn(options: ApiOptions = {}) {
-  return async ({ queryKey }: any) => {
-    const [endpoint] = queryKey;
-    const response = await apiRequest('GET', endpoint, undefined, options);
+// Utility to build full URLs from endpoints
+export function buildApiUrl(endpoint: string): string {
+  // If the endpoint already starts with http, assume it's a full URL
+  if (endpoint.startsWith('http')) {
+    return endpoint;
+  }
+  
+  // Make sure endpoint starts with a slash
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return `${API_BASE_URL}${normalizedEndpoint}`;
+}
 
-    if (!response.ok) {
-      if (response.status === 401 && options.on401 === 'returnNull') {
-        return null;
-      }
+// Default fetcher with error handling options
+export function getQueryFn(options: GetQueryFnOptions = {}) {
+  return async ({ queryKey }: { queryKey: readonly unknown[] }): Promise<any> => {
+    const endpoint = String(queryKey[0]);
+    const url = buildApiUrl(endpoint);
+    
+    console.log(`Making API request to: ${url}`);
+    
+    try {
+      // Set up fetch options with credentials for cookies
+      const fetchOptions: RequestInit = {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        },
+      };
       
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
-    }
+      const res = await fetch(url, fetchOptions);
 
-    // For endpoints that don't return JSON (like 204 No Content)
-    if (response.status === 204) {
+      if (!res.ok) {
+        if (res.status === 401 && options.on401 === 'returnNull') {
+          console.log('401 Unauthorized response handled with returnNull');
+          return null;
+        }
+        if (res.status === 404 && options.on404 === 'returnNull') {
+          console.log('404 Not Found response handled with returnNull');
+          return null;
+        }
+        
+        const errorText = await res.text();
+        console.error(`API error ${res.status}: ${errorText}`);
+        throw new Error(errorText || `API error ${res.status}`);
+      }
+
+      // For non-JSON responses like empty responses
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await res.json();
+        console.log('API response data:', JSON.stringify(data).substring(0, 200) + (JSON.stringify(data).length > 200 ? '...' : ''));
+        return data;
+      }
+
       return null;
+    } catch (error) {
+      console.error(`API Request to ${url} failed:`, error);
+      throw error;
     }
-
-    return response.json();
   };
+}
+
+// Function for making API requests
+export async function apiRequest(
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE', 
+  endpoint: string, 
+  data?: any
+): Promise<Response> {
+  const url = buildApiUrl(endpoint);
+  
+  console.log(`Making ${method} request to: ${url}`);
+  if (data) {
+    console.log('Request payload:', JSON.stringify(data));
+  }
+  
+  const options: RequestInit = {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    credentials: 'include', // Important for sending cookies in cross-domain requests
+  };
+
+  if (data) {
+    options.body = JSON.stringify(data);
+  }
+
+  try {
+    const response = await fetch(url, options);
+    
+    // Log response status
+    console.log(`${method} response from ${url}: ${response.status} ${response.statusText}`);
+    
+    // Check for response content-type
+    const contentType = response.headers.get('content-type');
+    console.log(`Response content-type: ${contentType}`);
+    
+    // Clone the response for debugging if needed
+    if (!response.ok) {
+      try {
+        const clonedResponse = response.clone();
+        const errorText = await clonedResponse.text();
+        console.error(`Error response body: ${errorText}`);
+      } catch (err) {
+        console.error('Could not read error response body');
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    console.error(`${method} request to ${url} failed:`, error);
+    throw error;
+  }
 }

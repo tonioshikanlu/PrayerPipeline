@@ -1,70 +1,63 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+
+type Route = {
+  name: string;
+  params?: Record<string, any>;
+};
 
 interface NavigationContextType {
-  currentScreen: string;
-  navigate: (screen: string, params?: Record<string, any>) => void;
+  currentRoute: Route;
+  history: Route[];
+  navigate: (routeName: string, params?: Record<string, any>) => void;
   goBack: () => void;
-  navigationHistory: string[];
-  params: Record<string, any>;
+  canGoBack: () => boolean;
+  resetTo: (routeName: string, params?: Record<string, any>) => void;
 }
 
-const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
+export const NavigationContext = createContext<NavigationContextType>({
+  currentRoute: { name: 'Login' },
+  history: [],
+  navigate: () => {},
+  goBack: () => {},
+  canGoBack: () => false,
+  resetTo: () => {},
+});
 
-interface NavigationProviderProps {
-  initialScreen?: string;
-  children: React.ReactNode;
-}
+export const NavigationProvider: React.FC<{ 
+  children: ReactNode;
+  initialRoute?: string;
+}> = ({ children, initialRoute = 'Login' }) => {
+  const [history, setHistory] = useState<Route[]>([{ name: initialRoute }]);
 
-export const NavigationProvider: React.FC<NavigationProviderProps> = ({ 
-  initialScreen = 'Home',
-  children 
-}) => {
-  const [currentScreen, setCurrentScreen] = useState(initialScreen);
-  const [navigationHistory, setNavigationHistory] = useState<string[]>([initialScreen]);
-  const [params, setParams] = useState<Record<string, any>>({});
-  
-  // Reset history when initial screen changes (useful for auth state changes)
-  useEffect(() => {
-    setCurrentScreen(initialScreen);
-    setNavigationHistory([initialScreen]);
-    setParams({});
-  }, [initialScreen]);
-
-  const navigate = (screen: string, newParams: Record<string, any> = {}) => {
-    setCurrentScreen(screen);
-    setParams(newParams);
-    
-    // Add to navigation history
-    setNavigationHistory(prev => [...prev, screen]);
+  const navigate = (routeName: string, params?: Record<string, any>) => {
+    setHistory(prev => [...prev, { name: routeName, params }]);
   };
 
   const goBack = () => {
-    if (navigationHistory.length <= 1) {
-      return; // Can't go back if there's only one screen in history
+    if (history.length > 1) {
+      setHistory(prev => prev.slice(0, prev.length - 1));
     }
-    
-    // Remove current screen from history
-    const newHistory = [...navigationHistory];
-    newHistory.pop(); // Remove current screen
-    
-    // Get the previous screen
-    const previousScreen = newHistory[newHistory.length - 1];
-    
-    setCurrentScreen(previousScreen);
-    setNavigationHistory(newHistory);
-    setParams({}); // Reset params when going back
+  };
+
+  const canGoBack = () => {
+    return history.length > 1;
+  };
+
+  const resetTo = (routeName: string, params?: Record<string, any>) => {
+    setHistory([{ name: routeName, params }]);
+  };
+
+  const value = {
+    currentRoute: history[history.length - 1],
+    history,
+    navigate,
+    goBack,
+    canGoBack,
+    resetTo,
   };
 
   return (
-    <NavigationContext.Provider
-      value={{
-        currentScreen,
-        navigate,
-        goBack,
-        navigationHistory,
-        params
-      }}
-    >
+    <NavigationContext.Provider value={value}>
       {children}
     </NavigationContext.Provider>
   );
@@ -72,8 +65,15 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
 
 export const useNavigation = () => {
   const context = useContext(NavigationContext);
-  if (context === undefined) {
+  
+  if (!context) {
     throw new Error('useNavigation must be used within a NavigationProvider');
   }
+  
   return context;
+};
+
+export const useRoute = () => {
+  const { currentRoute } = useNavigation();
+  return currentRoute;
 };
