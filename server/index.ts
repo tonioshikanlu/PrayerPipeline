@@ -6,17 +6,22 @@ import cors from "cors";
 
 const app = express();
 
-// Configure CORS to allow requests from anywhere during development
-app.use(cors({
-  origin: '*',                   // Allow all origins during development
-  credentials: true,             // Important for sending cookies
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+// Configure CORS with maximum permissiveness for development
+app.use((req, res, next) => {
+  // Allow requests from any origin
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-access-token');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Expose-Headers', 'Content-Length, X-Confirm-Delete, Set-Cookie, Cookie');
   
-  // Add these options for better cross-domain support
-  exposedHeaders: ['Set-Cookie'],
-  optionsSuccessStatus: 204
-}));
+  // Preflight request handling
+  if (req.method === 'OPTIONS') {
+    return res.status(200).send();
+  }
+  
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
