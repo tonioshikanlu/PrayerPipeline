@@ -1,40 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { MainNavigator } from './src/navigation/MainNavigator';
+import { NavigationProvider } from './src/navigation/NavigationContext';
+import Navigator from './src/navigation/Navigator';
+import TabBar from './src/navigation/TabBar';
 import { AuthProvider } from './src/context/AuthContext';
-import { AuthNavigator } from './src/navigation/MainNavigator';
+import { useAuth } from './src/hooks/useAuth';
 
-export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Simulate checking if user is authenticated
-  useEffect(() => {
-    const checkAuth = async () => {
-      // This would typically check for a token in secure storage
-      // For now, we'll simulate a delay and set to not authenticated
-      setTimeout(() => {
-        setIsAuthenticated(false);
-        setIsLoading(false);
-      }, 1000);
-    };
-
-    checkAuth();
-  }, []);
+// Wrapper component to access auth state within context
+const AppContent = () => {
+  const { user, isLoading } = useAuth();
+  const isAuthenticated = !!user;
 
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4299e1" />
+        <ActivityIndicator size="large" color="#6366F1" />
       </View>
     );
   }
 
   return (
-    <AuthProvider>
+    <NavigationProvider initialScreen={isAuthenticated ? 'Home' : 'Login'}>
       <View style={styles.container}>
-        {isAuthenticated ? <MainNavigator /> : <AuthNavigator />}
+        <View style={styles.content}>
+          <Navigator authenticated={isAuthenticated} />
+        </View>
+        
+        {isAuthenticated && (
+          <View style={styles.footer}>
+            <TabBar />
+          </View>
+        )}
       </View>
+    </NavigationProvider>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
     </AuthProvider>
   );
 }
@@ -42,6 +47,16 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
+  },
+  content: {
+    flex: 1,
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#fff',
   },
   loadingContainer: {

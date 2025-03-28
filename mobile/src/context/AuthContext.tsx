@@ -1,12 +1,19 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
+import { Alert } from 'react-native';
 import * as SecureStore from '../mocks/expo-secure-store';
-import { User } from '../../../shared/schema';
 
-interface AuthContextType {
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  name: string;
+}
+
+interface AuthContextData {
   user: User | null;
   isLoading: boolean;
   signIn: (username: string, password: string) => Promise<boolean>;
-  signUp: (username: string, email: string, password: string) => Promise<boolean>;
+  signUp: (name: string, email: string, username: string, password: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   forgotPassword: (email: string) => Promise<boolean>;
   resetPassword: (token: string, newPassword: string) => Promise<boolean>;
@@ -14,26 +21,24 @@ interface AuthContextType {
   changePassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user from secure storage
+    // Load user from secure storage on app start
     const loadUser = async () => {
       try {
-        const userJSON = await SecureStore.getItemAsync('user');
-        if (userJSON) {
-          setUser(JSON.parse(userJSON));
+        const storedUser = await SecureStore.getItemAsync('user');
+        const storedToken = await SecureStore.getItemAsync('token');
+        
+        if (storedUser && storedToken) {
+          setUser(JSON.parse(storedUser));
         }
       } catch (error) {
-        console.error('Failed to load user from storage:', error);
+        console.error('Error loading auth state:', error);
       } finally {
         setIsLoading(false);
       }
@@ -43,59 +48,77 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const signIn = async (username: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      // Call API to authenticate user
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Authentication failed');
-      }
-
-      const userData = await response.json();
+      // In a real app, this would make an API call
+      // Simulate API call with a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Save user to secure storage
+      // For demo purposes, accept any username/password combo
+      // where password is at least 6 characters
+      if (password.length < 6) {
+        Alert.alert('Error', 'Invalid credentials');
+        return false;
+      }
+      
+      // Mock user data
+      const userData: User = {
+        id: 1,
+        username,
+        email: `${username}@example.com`,
+        name: username.charAt(0).toUpperCase() + username.slice(1),
+      };
+      
+      // Store in secure storage
       await SecureStore.setItemAsync('user', JSON.stringify(userData));
+      await SecureStore.setItemAsync('token', 'mock-jwt-token');
+      
       setUser(userData);
       return true;
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error('Login error:', error);
+      Alert.alert('Error', 'Failed to sign in. Please try again.');
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const signUp = async (username: string, email: string, password: string): Promise<boolean> => {
+  const signUp = async (
+    name: string,
+    email: string,
+    username: string,
+    password: string
+  ): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      // Call API to register user
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, email, password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Registration failed');
-      }
-
-      const userData = await response.json();
+      // In a real app, this would make an API call
+      // Simulate API call with a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Save user to secure storage
+      // Validate input
+      if (!name || !email || !username || password.length < 6) {
+        Alert.alert('Error', 'Please fill all fields. Password must be at least 6 characters.');
+        return false;
+      }
+      
+      // Mock user data
+      const userData: User = {
+        id: 1,
+        username,
+        email,
+        name,
+      };
+      
+      // Store in secure storage
       await SecureStore.setItemAsync('user', JSON.stringify(userData));
+      await SecureStore.setItemAsync('token', 'mock-jwt-token');
+      
       setUser(userData);
       return true;
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.error('Registration error:', error);
+      Alert.alert('Error', 'Failed to create account. Please try again.');
       return false;
     } finally {
       setIsLoading(false);
@@ -104,37 +127,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async (): Promise<void> => {
     try {
-      setIsLoading(true);
-      // Call API to logout
-      await fetch('/api/logout', {
-        method: 'POST',
-      });
-      
-      // Remove user from secure storage
+      // Remove from secure storage
       await SecureStore.deleteItemAsync('user');
+      await SecureStore.deleteItemAsync('token');
+      
       setUser(null);
     } catch (error) {
-      console.error('Sign out error:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to sign out. Please try again.');
     }
   };
 
   const forgotPassword = async (email: string): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      // Call API to request password reset
-      const response = await fetch('/api/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      return response.ok;
+      // Simulate API call with a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Always return success for demo
+      Alert.alert('Success', 'If an account exists with that email, a password reset link has been sent.');
+      return true;
     } catch (error) {
       console.error('Forgot password error:', error);
+      Alert.alert('Error', 'Failed to process request. Please try again.');
       return false;
     } finally {
       setIsLoading(false);
@@ -142,20 +157,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const resetPassword = async (token: string, newPassword: string): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      // Call API to reset password
-      const response = await fetch('/api/reset-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token, password: newPassword }),
-      });
-
-      return response.ok;
+      // Simulate API call with a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Validate password
+      if (newPassword.length < 6) {
+        Alert.alert('Error', 'Password must be at least 6 characters.');
+        return false;
+      }
+      
+      // Always return success for demo
+      Alert.alert('Success', 'Your password has been reset successfully.');
+      return true;
     } catch (error) {
       console.error('Reset password error:', error);
+      Alert.alert('Error', 'Failed to reset password. Please try again.');
       return false;
     } finally {
       setIsLoading(false);
@@ -163,29 +181,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateProfile = async (data: Partial<User>): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      // Call API to update user profile
-      const response = await fetch('/api/user/profile', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
-
-      const updatedUser = await response.json();
+      // Simulate API call with a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Update user in secure storage
+      if (!user) {
+        Alert.alert('Error', 'You must be logged in to update your profile.');
+        return false;
+      }
+      
+      // Update user data
+      const updatedUser = { ...user, ...data };
+      
+      // Store in secure storage
       await SecureStore.setItemAsync('user', JSON.stringify(updatedUser));
+      
       setUser(updatedUser);
+      Alert.alert('Success', 'Profile updated successfully.');
       return true;
     } catch (error) {
       console.error('Update profile error:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
       return false;
     } finally {
       setIsLoading(false);
@@ -193,37 +210,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const changePassword = async (currentPassword: string, newPassword: string): Promise<boolean> => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      // Call API to change password
-      const response = await fetch('/api/user/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-
-      return response.ok;
+      // Simulate API call with a delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Validate password
+      if (newPassword.length < 6) {
+        Alert.alert('Error', 'New password must be at least 6 characters.');
+        return false;
+      }
+      
+      // For demo, any currentPassword is accepted
+      Alert.alert('Success', 'Password changed successfully.');
+      return true;
     } catch (error) {
       console.error('Change password error:', error);
+      Alert.alert('Error', 'Failed to change password. Please try again.');
       return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const value = {
-    user,
-    isLoading,
-    signIn,
-    signUp,
-    signOut,
-    forgotPassword,
-    resetPassword,
-    updateProfile,
-    changePassword,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        signIn,
+        signUp,
+        signOut,
+        forgotPassword,
+        resetPassword,
+        updateProfile,
+        changePassword,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };

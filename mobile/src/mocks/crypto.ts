@@ -1,54 +1,45 @@
+// Mock implementation of crypto functions for React Native
+// This uses crypto-browserify which is a polyfill for the Node.js crypto module
+
+import { scrypt as scryptCallback, randomBytes, timingSafeEqual } from 'crypto-browserify';
+import { promisify } from 'util';
+
+const scrypt = promisify(scryptCallback);
+
 /**
- * Mock implementation of crypto for React Native
- * Used for password hashing and comparison functions
+ * Hash a password with scrypt
+ * @param password The password to hash
+ * @returns A string in the format `hash.salt` where hash is the hex-encoded hash and salt is the hex-encoded salt
  */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const derivedKey = await scrypt(password, salt, 64) as Buffer;
+  return `${derivedKey.toString('hex')}.${salt}`;
+}
 
-// Buffer implementation for React Native
-class Buffer {
-  private data: string;
-
-  constructor(data: string, encoding?: string) {
-    this.data = data;
-  }
-
-  toString(encoding: string): string {
-    return this.data;
-  }
-
-  static from(data: string, encoding?: string): Buffer {
-    return new Buffer(data, encoding);
+/**
+ * Compare a password with a stored hash
+ * @param supplied The supplied password to check
+ * @param stored The stored hash in the format produced by hashPassword
+ * @returns Whether the password matches
+ */
+export async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
+  try {
+    const [hashed, salt] = stored.split('.');
+    const hashedBuf = Buffer.from(hashed, 'hex');
+    const suppliedBuf = await scrypt(supplied, salt, 64) as Buffer;
+    return timingSafeEqual(hashedBuf, suppliedBuf);
+  } catch (error) {
+    console.error('Error comparing passwords:', error);
+    return false;
   }
 }
 
-// Mock scrypt implementation
-export function scrypt(password: string, salt: string, keylen: number, callback: Function): void {
-  // Simple mock implementation - in production would use a proper crypto library
-  const hash = `mock_hash_${password}_${salt}_${keylen}`;
-  const buffer = Buffer.from(hash);
-  callback(null, buffer);
+/**
+ * Generate a random token (e.g., for reset passwords)
+ * @param length The length of the token in bytes (output will be twice this in hex)
+ * @returns A hex-encoded random string
+ */
+export function generateToken(length: number = 32): string {
+  return randomBytes(length).toString('hex');
 }
-
-// Mock randomBytes implementation
-export function randomBytes(size: number): { toString: (encoding: string) => string } {
-  // Generate a random string of specified length
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < size * 2; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  
-  return {
-    toString: (encoding: string) => result
-  };
-}
-
-// Mock timingSafeEqual implementation
-export function timingSafeEqual(a: Buffer, b: Buffer): boolean {
-  return a.toString('hex') === b.toString('hex');
-}
-
-export default {
-  scrypt,
-  randomBytes,
-  timingSafeEqual
-};

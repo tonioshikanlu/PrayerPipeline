@@ -1,170 +1,177 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  ScrollView,
+} from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigation } from '../navigation/NavigationContext';
 
-export default function LoginScreen() {
+const LoginScreen: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, isLoading } = useAuth();
+  const { navigate } = useNavigation();
 
   const handleLogin = async () => {
-    // Validate inputs
-    if (!username.trim()) {
-      Alert.alert('Error', 'Username is required');
+    if (!username || !password) {
+      alert('Please fill in all fields');
       return;
     }
 
-    if (!password) {
-      Alert.alert('Error', 'Password is required');
-      return;
-    }
-
-    setIsLoading(true);
     const success = await signIn(username, password);
-    setIsLoading(false);
-
-    if (!success) {
-      Alert.alert('Error', 'Invalid username or password');
+    if (success) {
+      // Navigate to Home screen is handled by App.tsx through the AuthProvider
+      console.log('Login successful');
     }
-  };
-
-  const handleRegister = () => {
-    // Navigate to register screen
-    console.log('Navigate to register');
-  };
-
-  const handleForgotPassword = () => {
-    // Navigate to forgot password screen
-    console.log('Navigate to forgot password');
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Prayer Pipeline</Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
-      </View>
-      <View style={styles.form}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Username</Text>
-          <TextInput
-            style={styles.input}
-            value={username}
-            onChangeText={setUsername}
-            placeholder="Enter your username"
-            autoCapitalize="none"
-          />
+    <ScrollView 
+      contentContainerStyle={styles.scrollContainer}
+      keyboardShouldPersistTaps="handled"
+    >
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Prayer Pipeline</Text>
+          <Text style={styles.subtitle}>Sign in to your account</Text>
         </View>
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter your password"
-            secureTextEntry
-          />
+
+        <View style={styles.form}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              style={styles.input}
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Enter your username"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              secureTextEntry
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={styles.forgotPassword}
+            onPress={() => navigate('ForgotPassword')}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.buttonText}>Sign In</Text>
+            )}
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          style={styles.forgotPassword} 
-          onPress={handleForgotPassword}
-        >
-          <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={handleLogin}
-          disabled={isLoading}
-        >
-          <Text style={styles.buttonText}>
-            {isLoading ? 'Logging in...' : 'Login'}
-          </Text>
-        </TouchableOpacity>
-        <View style={styles.registerContainer}>
-          <Text style={styles.registerText}>Don't have an account?</Text>
-          <TouchableOpacity onPress={handleRegister}>
-            <Text style={styles.registerLink}>Register</Text>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don't have an account?</Text>
+          <TouchableOpacity onPress={() => navigate('Register')}>
+            <Text style={styles.signUpText}>Sign up</Text>
           </TouchableOpacity>
         </View>
       </View>
     </ScrollView>
   );
-}
+};
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    padding: 20,
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
   },
   header: {
-    padding: 24,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 40,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#4299e1',
+    color: '#6366F1',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#4a5568',
+    color: '#6B7280',
   },
   form: {
-    padding: 16,
+    marginBottom: 24,
   },
-  inputGroup: {
+  inputContainer: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#4a5568',
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 6,
+    color: '#374151',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#D1D5DB',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#ffffff',
   },
   forgotPassword: {
     alignSelf: 'flex-end',
     marginBottom: 16,
   },
   forgotPasswordText: {
-    color: '#4299e1',
+    color: '#6366F1',
     fontSize: 14,
   },
   button: {
-    backgroundColor: '#4299e1',
+    backgroundColor: '#6366F1',
     borderRadius: 8,
-    padding: 16,
+    padding: 14,
     alignItems: 'center',
-    marginVertical: 16,
-  },
-  buttonDisabled: {
-    backgroundColor: '#a0aec0',
+    justifyContent: 'center',
   },
   buttonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  registerContainer: {
+  footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 16,
+    alignItems: 'center',
   },
-  registerText: {
-    color: '#4a5568',
+  footerText: {
+    color: '#6B7280',
     marginRight: 4,
   },
-  registerLink: {
-    color: '#4299e1',
-    fontWeight: 'bold',
+  signUpText: {
+    color: '#6366F1',
+    fontWeight: '600',
   },
 });
+
+export default LoginScreen;

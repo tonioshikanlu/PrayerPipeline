@@ -1,34 +1,58 @@
+// Mock implementation of expo-secure-store
+// This uses localStorage on web as a fallback
+
 /**
- * Mock implementation of expo-secure-store for React Native
- * Used for storing authentication tokens and other sensitive data
+ * Save a key-value pair to secure storage
  */
-
-// In-memory storage to simulate secure storage
-const secureStore: Record<string, string> = {};
-
-// Mock setItemAsync implementation
-export async function setItemAsync(key: string, value: string, options?: object): Promise<void> {
-  secureStore[key] = value;
+export async function setItemAsync(key: string, value: string): Promise<void> {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(`secure_${key}`, value);
+    } else {
+      console.warn('localStorage not available, secure storage not persisted');
+    }
+  } catch (error) {
+    console.error('Error saving to secure storage:', error);
+    throw error;
+  }
 }
 
-// Mock getItemAsync implementation
-export async function getItemAsync(key: string, options?: object): Promise<string | null> {
-  return secureStore[key] || null;
+/**
+ * Get a value for a key from secure storage
+ */
+export async function getItemAsync(key: string): Promise<string | null> {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(`secure_${key}`);
+    } else {
+      console.warn('localStorage not available, secure storage not available');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error retrieving from secure storage:', error);
+    throw error;
+  }
 }
 
-// Mock deleteItemAsync implementation
-export async function deleteItemAsync(key: string, options?: object): Promise<void> {
-  delete secureStore[key];
+/**
+ * Delete a key-value pair from secure storage
+ */
+export async function deleteItemAsync(key: string): Promise<void> {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(`secure_${key}`);
+    } else {
+      console.warn('localStorage not available, secure storage not available');
+    }
+  } catch (error) {
+    console.error('Error deleting from secure storage:', error);
+    throw error;
+  }
 }
 
-// Mock isAvailableAsync implementation
+/**
+ * Check if a key exists in secure storage
+ */
 export async function isAvailableAsync(): Promise<boolean> {
-  return true;
+  return typeof localStorage !== 'undefined';
 }
-
-export default {
-  setItemAsync,
-  getItemAsync,
-  deleteItemAsync,
-  isAvailableAsync,
-};
