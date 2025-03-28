@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Image, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '../navigation/NavigationContext';
 import { useAuth } from '../hooks/useAuth';
+import { apiRequest } from '../api/queryClient';
 
-// Mock data structure
 interface Organization {
   id: number;
   name: string;
@@ -13,7 +13,7 @@ interface Organization {
 
 const OrganizationOnboardingScreen: React.FC = () => {
   const { navigate } = useNavigation();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   
   const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
   const [isLoading, setIsLoading] = useState(false);
@@ -23,6 +23,7 @@ const OrganizationOnboardingScreen: React.FC = () => {
   const [orgDescription, setOrgDescription] = useState('');
   const [orgWebsite, setOrgWebsite] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [error, setError] = useState('');
 
   // Handle creating a new organization
   const handleCreateOrg = async () => {
@@ -32,12 +33,24 @@ const OrganizationOnboardingScreen: React.FC = () => {
     }
     
     setIsLoading(true);
+    setError('');
     
-    // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const data = {
+        name: orgName.trim(),
+        description: orgDescription.trim(),
+        website: orgWebsite.trim()
+      };
       
-      // Mock success
+      const response = await apiRequest('POST', '/api/organizations', data);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create organization');
+      }
+      
+      await refreshUser();
+      
       Alert.alert(
         'Success',
         `Organization "${orgName}" created successfully!`,
@@ -49,7 +62,9 @@ const OrganizationOnboardingScreen: React.FC = () => {
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Failed to create organization. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create organization';
+      setError(errorMessage);
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -63,12 +78,18 @@ const OrganizationOnboardingScreen: React.FC = () => {
     }
     
     setIsLoading(true);
+    setError('');
     
-    // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const response = await apiRequest('POST', '/api/organizations/join', { code: inviteCode.trim() });
       
-      // Mock success
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Invalid invite code');
+      }
+      
+      await refreshUser();
+      
       Alert.alert(
         'Success',
         'Successfully joined the organization!',
@@ -80,7 +101,9 @@ const OrganizationOnboardingScreen: React.FC = () => {
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Invalid invite code. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Invalid invite code';
+      setError(errorMessage);
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }

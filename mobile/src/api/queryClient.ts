@@ -1,7 +1,13 @@
 import { QueryClient } from '@tanstack/react-query';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-// Base URL for API requests - adjust for dev/prod environments
-const API_BASE_URL = '/api';
+// Base URL for API requests - different for web vs native
+// On web, we can use relative paths
+// On native, we need the full URL to the API server
+const API_BASE_URL = Platform.OS === 'web' 
+  ? '/api' 
+  : Constants.manifest?.extra?.apiUrl || 'https://prayer-pipeline.replit.app/api';
 
 // Create and export the query client instance
 export const queryClient = new QueryClient({
