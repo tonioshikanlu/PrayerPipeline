@@ -667,9 +667,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Prayer request not found" });
     }
     
-    // Check if user is member of the group
-    const membership = await storage.getGroupMember(request.groupId, req.user.id);
-    if (!membership && req.user.role !== "admin") {
+    // Get the group to check organization membership
+    const group = await storage.getGroup(request.groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    
+    // First check if the user is a member of the organization that owns this group
+    const organizationMembership = await storage.getOrganizationMember(group.organizationId, req.user.id);
+    if (!organizationMembership && req.user.role !== "admin") {
+      return res.status(403).json({ 
+        message: "You don't have permission to view this prayer request" 
+      });
+    }
+    
+    // Then check if user is member of the specific group (if they're in the organization, but not the group)
+    const groupMembership = await storage.getGroupMember(request.groupId, req.user.id);
+    if (!groupMembership && req.user.role !== "admin") {
       return res.status(403).json({ 
         message: "You don't have permission to view this prayer request" 
       });
@@ -680,7 +694,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const comments = await storage.getPrayerRequestComments(request.id);
     const prayingCount = await storage.getPrayingForCount(request.id);
     const isPraying = await storage.isPrayingFor(request.id, req.user.id);
-    const group = await storage.getGroup(request.groupId);
     
     const authorDetails = author ? {
       id: author.id,
@@ -850,9 +863,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Prayer request not found" });
       }
       
-      // Check if user is member of the group
-      const membership = await storage.getGroupMember(request.groupId, req.user.id);
-      if (!membership && req.user.role !== "admin") {
+      // Get the group to check organization membership
+      const group = await storage.getGroup(request.groupId);
+      if (!group) {
+        return res.status(404).json({ message: "Group not found" });
+      }
+      
+      // First check if the user is a member of the organization that owns this group
+      const organizationMembership = await storage.getOrganizationMember(group.organizationId, req.user.id);
+      if (!organizationMembership && req.user.role !== "admin") {
+        return res.status(403).json({ 
+          message: "You don't have permission to comment on this prayer request" 
+        });
+      }
+      
+      // Then check if user is member of the specific group
+      const groupMembership = await storage.getGroupMember(request.groupId, req.user.id);
+      if (!groupMembership && req.user.role !== "admin") {
         return res.status(403).json({ 
           message: "You don't have permission to comment on this prayer request" 
         });
@@ -896,9 +923,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Prayer request not found" });
     }
     
-    // Check if user is member of the group
-    const membership = await storage.getGroupMember(request.groupId, req.user.id);
-    if (!membership && req.user.role !== "admin") {
+    // Get the group to check organization membership
+    const group = await storage.getGroup(request.groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    
+    // First check if the user is a member of the organization that owns this group
+    const organizationMembership = await storage.getOrganizationMember(group.organizationId, req.user.id);
+    if (!organizationMembership && req.user.role !== "admin") {
+      return res.status(403).json({ 
+        message: "You don't have permission to view comments on this prayer request" 
+      });
+    }
+    
+    // Then check if user is member of the specific group
+    const groupMembership = await storage.getGroupMember(request.groupId, req.user.id);
+    if (!groupMembership && req.user.role !== "admin") {
       return res.status(403).json({ 
         message: "You don't have permission to view comments on this prayer request" 
       });
@@ -985,6 +1026,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Praying for
   app.post("/api/requests/:requestId/pray", isAuthenticated, async (req, res) => {
+    assertUser(req);
     const requestId = parseInt(req.params.requestId);
     if (isNaN(requestId)) {
       return res.status(400).json({ message: "Invalid request ID" });
@@ -994,6 +1036,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const request = await storage.getPrayerRequest(requestId);
     if (!request) {
       return res.status(404).json({ message: "Prayer request not found" });
+    }
+    
+    // Get the group to check organization membership
+    const group = await storage.getGroup(request.groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    
+    // First check if the user is a member of the organization that owns this group
+    const organizationMembership = await storage.getOrganizationMember(group.organizationId, req.user.id);
+    if (!organizationMembership && req.user.role !== "admin") {
+      return res.status(403).json({ 
+        message: "You don't have permission to pray for this request" 
+      });
+    }
+    
+    // Then check if user is member of the specific group
+    const groupMembership = await storage.getGroupMember(request.groupId, req.user.id);
+    if (!groupMembership && req.user.role !== "admin") {
+      return res.status(403).json({ 
+        message: "You don't have permission to pray for this request" 
+      });
     }
     
     // Check if user is already praying for this request
@@ -1016,9 +1080,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/requests/:requestId/pray", isAuthenticated, async (req, res) => {
+    assertUser(req);
     const requestId = parseInt(req.params.requestId);
     if (isNaN(requestId)) {
       return res.status(400).json({ message: "Invalid request ID" });
+    }
+    
+    // Check if request exists
+    const request = await storage.getPrayerRequest(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Prayer request not found" });
+    }
+    
+    // Get the group to check organization membership
+    const group = await storage.getGroup(request.groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    
+    // First check if the user is a member of the organization that owns this group
+    const organizationMembership = await storage.getOrganizationMember(group.organizationId, req.user.id);
+    if (!organizationMembership && req.user.role !== "admin") {
+      return res.status(403).json({ 
+        message: "You don't have permission to interact with this request" 
+      });
+    }
+    
+    // Then check if user is member of the specific group
+    const groupMembership = await storage.getGroupMember(request.groupId, req.user.id);
+    if (!groupMembership && req.user.role !== "admin") {
+      return res.status(403).json({ 
+        message: "You don't have permission to interact with this request" 
+      });
     }
     
     // Check if user is praying for this request
